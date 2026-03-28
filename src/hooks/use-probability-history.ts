@@ -16,12 +16,21 @@ import type { ISubscription } from "@nktkas/hyperliquid";
 import type { Market } from "@purrdict/hip4";
 import type { HIP4Client } from "./use-hip4-client.js";
 import { useHIP4Context } from "./hip4-provider.js";
-import type { OutcomeSeries } from "../components/probability-chart.js";
-import { OUTCOME_COLORS } from "../components/probability-chart.js";
 
-// Re-export for consumers who import from the hook
-export type { OutcomeSeries };
-export { OUTCOME_COLORS };
+/** A single outcome's data series — same shape as ProbabilityChart expects */
+export interface OutcomeSeries {
+  id: string;
+  label: string;
+  color: string;
+  data: Array<{ time: number; value: number }>;
+  currentValue: number;
+}
+
+/** Color palette for outcome lines — 8 visually distinct colors */
+export const OUTCOME_COLORS = [
+  "#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6",
+  "#10b981", "#06b6d4", "#f43f5e", "#84cc16",
+];
 
 /** Max data points kept per series */
 const MAX_POINTS = 1440; // 24h of 1-minute candles
@@ -136,10 +145,10 @@ export function useProbabilityHistory(
         const pts = seriesData.get(coin) ?? [];
         return {
           id: coin,
-          label: m.name ?? coin,
+          label: m.underlying ?? coin,
           color: OUTCOME_COLORS[i % OUTCOME_COLORS.length],
           data: [...pts],
-          currentValue: currentValues.get(coin),
+          currentValue: currentValues.get(coin) ?? 0,
         };
       });
 
