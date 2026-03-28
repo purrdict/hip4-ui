@@ -1,0 +1,18 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "use-hip4-client",
+  "type": "registry:hook",
+  "title": "useHIP4Client",
+  "description": "Creates and caches an @purrdict/hip4 client with WebSocket subscription support. Manages lifecycle and cleanup on unmount.",
+  "author": "Purrdict <https://purrdict.xyz>",
+  "dependencies": [
+    "@purrdict/hip4"
+  ],
+  "files": [
+    {
+      "path": "hooks/hip4/use-hip4-client.ts",
+      "type": "registry:hook",
+      "content": "/**\n * useHIP4Client — creates and caches an @purrdict/hip4 client.\n *\n * The client is created once per component mount and cached in a ref.\n * It is closed on unmount to release the WebSocket connection.\n *\n * Usage:\n *   const client = useHIP4Client({ testnet: true });\n *   const mids = await client.info.allMids();\n */\n\n\"use client\";\n\nimport { useRef, useEffect } from \"react\";\nimport { createClient } from \"@purrdict/hip4\";\nimport type { HIP4Client, ClientConfig } from \"@purrdict/hip4\";\n\nexport interface UseHIP4ClientOptions extends Partial<ClientConfig> {\n  /**\n   * Connect to testnet. Default: false (mainnet).\n   * Alias: isTestnet.\n   */\n  testnet?: boolean;\n}\n\n/**\n * Create and cache an HIP4Client for the lifetime of the component.\n *\n * The client is stable across re-renders. A new client is only created\n * if `testnet` changes (which should be uncommon).\n */\nexport function useHIP4Client(opts: UseHIP4ClientOptions = {}): HIP4Client {\n  const { testnet = false, builderAddress = \"\", builderFee = 0 } = opts;\n\n  const clientRef = useRef<HIP4Client | null>(null);\n  const testnetRef = useRef<boolean>(testnet);\n\n  // Create client on first render or if testnet flag changes.\n  if (clientRef.current === null || testnetRef.current !== testnet) {\n    // Close old client if it exists.\n    if (clientRef.current !== null) {\n      clientRef.current.close().catch(() => undefined);\n    }\n\n    clientRef.current = createClient({ testnet, builderAddress, builderFee });\n    testnetRef.current = testnet;\n  }\n\n  // Close the client on unmount.\n  useEffect(() => {\n    return () => {\n      if (clientRef.current) {\n        clientRef.current.close().catch(() => undefined);\n        clientRef.current = null;\n      }\n    };\n  }, []);\n\n  // Non-null guaranteed by the initialization above.\n  return clientRef.current!;\n}\n"
+    }
+  ]
+}

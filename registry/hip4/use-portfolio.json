@@ -1,0 +1,21 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "use-portfolio",
+  "type": "registry:hook",
+  "title": "usePortfolio",
+  "description": "Fetches USDH balance, outcome token positions, and open orders for a wallet address. Includes manual refresh support.",
+  "author": "Purrdict <https://purrdict.xyz>",
+  "dependencies": [
+    "@purrdict/hip4"
+  ],
+  "registryDependencies": [
+    "https://ui.purrdict.xyz/r/use-hip4-client.json"
+  ],
+  "files": [
+    {
+      "path": "hooks/hip4/use-portfolio.ts",
+      "type": "registry:hook",
+      "content": "/**\n * usePortfolio — fetch balances, positions, and open orders for a user.\n *\n * Usage:\n *   const { usdh, positions, openOrders, isLoading } = usePortfolio(client, address);\n */\n\n\"use client\";\n\nimport { useState, useEffect } from \"react\";\nimport { getBalances, fetchOpenOrders } from \"@purrdict/hip4\";\nimport type { HIP4Client, TokenBalance, OpenOrder } from \"@purrdict/hip4\";\n\nexport interface Position {\n  /** Coin name (e.g. \"#9860\") */\n  coin: string;\n  /** Number of shares held */\n  shares: number;\n}\n\nexport interface UsePortfolioResult {\n  /** Free USDH balance */\n  usdh: TokenBalance | null;\n  /** Outcome token positions derived from spot balances */\n  positions: Position[];\n  /** Current open (resting) orders */\n  openOrders: OpenOrder[];\n  isLoading: boolean;\n  error: Error | null;\n  /** Manually trigger a refresh */\n  refresh: () => void;\n}\n\n/**\n * Fetch portfolio data for a wallet address.\n *\n * @param client   HIP4Client from useHIP4Client()\n * @param address  Wallet address — pass null when no wallet is connected\n */\nexport function usePortfolio(\n  client: HIP4Client,\n  address: string | null,\n): UsePortfolioResult {\n  const [usdh, setUsdh] = useState<TokenBalance | null>(null);\n  const [positions, setPositions] = useState<Position[]>([]);\n  const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);\n  const [isLoading, setIsLoading] = useState(false);\n  const [error, setError] = useState<Error | null>(null);\n  const [refreshToken, setRefreshToken] = useState(0);\n\n  useEffect(() => {\n    if (!address) {\n      setUsdh(null);\n      setPositions([]);\n      setOpenOrders([]);\n      return;\n    }\n\n    let cancelled = false;\n\n    async function load() {\n      setIsLoading(true);\n      setError(null);\n\n      try {\n        const [balances, orders] = await Promise.all([\n          getBalances(client.info, address!),\n          fetchOpenOrders(client.info, address!),\n        ]);\n\n        if (cancelled) return;\n\n        setUsdh(balances.usdh);\n\n        // Extract outcome token positions from the \"+\" prefixed coins.\n        const pos: Position[] = [];\n        balances.tokens.forEach((bal, coin) => {\n          // Outcome tokens: \"+\" + coinNum. Positive balance = long position.\n          if (coin.startsWith(\"+\") && bal.total > 0) {\n            // Convert \"+9860\" → \"#9860\" for display.\n            const displayCoin = \"#\" + coin.slice(1);\n            pos.push({ coin: displayCoin, shares: bal.total });\n          }\n        });\n        setPositions(pos);\n\n        setOpenOrders(orders);\n      } catch (err) {\n        if (!cancelled) {\n          setError(err instanceof Error ? err : new Error(String(err)));\n        }\n      } finally {\n        if (!cancelled) {\n          setIsLoading(false);\n        }\n      }\n    }\n\n    load();\n\n    return () => {\n      cancelled = true;\n    };\n  }, [client, address, refreshToken]);\n\n  const refresh = () => setRefreshToken((t) => t + 1);\n\n  return { usdh, positions, openOrders, isLoading, error, refresh };\n}\n"
+    }
+  ]
+}

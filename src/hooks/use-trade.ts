@@ -43,7 +43,7 @@ export interface TradeParams {
   };
 }
 
-export interface UseTadeResult {
+export interface UseTradeResult {
   /**
    * Place a buy order.
    * @returns OrderStatus or null if no signer is connected.
@@ -76,7 +76,7 @@ export interface UseTadeResult {
 export function useTrade(
   client: HIP4Client,
   signer: HIP4Signer | null,
-): UseTadeResult {
+): UseTradeResult {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<OrderStatus | null>(null);
   const [error, setError] = useState<Error | null>(null);

@@ -27,7 +27,7 @@ export { useOrderbook } from "./hooks/use-orderbook.js";
 export type { UseOrderbookResult } from "./hooks/use-orderbook.js";
 
 export { useTrade } from "./hooks/use-trade.js";
-export type { TradeParams, UseTadeResult } from "./hooks/use-trade.js";
+export type { TradeParams, UseTradeResult } from "./hooks/use-trade.js";
 
 export { useMinShares } from "./hooks/use-min-shares.js";
 export type { UseMinSharesResult } from "./hooks/use-min-shares.js";

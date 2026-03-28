@@ -1,17 +1,16 @@
 {
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
   "name": "settlement-banner",
   "type": "registry:ui",
-  "description": "Banner showing a resolved prediction market result with winner and oracle price.",
+  "title": "Settlement Banner",
+  "description": "Banner showing a resolved market result with winning side highlight and oracle settle price.",
+  "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [],
-  "registryDependencies": [],
   "files": [
     {
       "path": "components/hip4/settlement-banner.tsx",
-      "type": "registry:ui"
-    },
-    {
-      "path": "hooks/hip4/use-settlement.ts",
-      "type": "registry:hook"
+      "type": "registry:ui",
+      "content": "/**\n * SettlementBanner — shows a resolved market result.\n *\n * Usage:\n *   <SettlementBanner result=\"Yes\" settlePrice=\"69500\" outcomeId={234} />\n */\n\n\"use client\";\n\nexport interface SettlementBannerProps {\n  /** The winning side */\n  result: \"Yes\" | \"No\";\n  /** The underlying oracle price at settlement */\n  settlePrice?: string | number;\n  /** Additional CSS classes */\n  className?: string;\n}\n\n/**\n * A banner indicating a market has been resolved.\n *\n * Shows the winning outcome and the oracle price that triggered resolution.\n */\nexport function SettlementBanner({\n  result,\n  settlePrice,\n  className = \"\",\n}: SettlementBannerProps) {\n  const isYes = result === \"Yes\";\n\n  return (\n    <div\n      role=\"status\"\n      aria-label={`Market resolved: ${result} wins`}\n      className={[\n        \"rounded-lg border p-4 flex items-center gap-3\",\n        isYes\n          ? \"border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400\"\n          : \"border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400\",\n        className,\n      ]\n        .filter(Boolean)\n        .join(\" \")}\n    >\n      {/* Icon */}\n      <span className=\"text-2xl\" aria-hidden>\n        {isYes ? \"✓\" : \"✗\"}\n      </span>\n\n      {/* Text */}\n      <div className=\"flex-1\">\n        <p className=\"font-semibold text-sm\">Market Resolved</p>\n        <p className=\"text-sm opacity-80\">\n          <span className=\"font-bold\">{result}</span> wins\n          {settlePrice !== undefined && (\n            <> — Oracle price: {Number(settlePrice).toLocaleString()}</>\n          )}\n        </p>\n      </div>\n\n      {/* Outcome badge */}\n      <span\n        className={[\n          \"shrink-0 px-3 py-1 rounded-full font-bold text-sm\",\n          isYes\n            ? \"bg-green-500/20 text-green-700 dark:text-green-400\"\n            : \"bg-red-500/20 text-red-700 dark:text-red-400\",\n        ].join(\" \")}\n      >\n        {result}\n      </span>\n    </div>\n  );\n}\n"
     }
   ]
 }

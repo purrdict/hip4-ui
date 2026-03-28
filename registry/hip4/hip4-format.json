@@ -1,20 +1,12 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry-item.json",
-  "name": "countdown-timer",
-  "type": "registry:ui",
-  "title": "Countdown Timer",
-  "description": "Live countdown to a prediction market expiry. Ticks every second, shows 'Settled' when expired.",
+  "name": "hip4-format",
+  "type": "registry:lib",
+  "title": "HIP-4 Formatting Utilities",
+  "description": "Price, USDH, countdown, and period formatters for HIP-4 prediction market data.",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [],
-  "registryDependencies": [
-    "https://ui.purrdict.xyz/r/hip4-format.json"
-  ],
   "files": [
-    {
-      "path": "components/hip4/countdown-timer.tsx",
-      "type": "registry:ui",
-      "content": "/**\n * CountdownTimer — live countdown to a prediction market expiry.\n *\n * Updates every second. Shows \"Settled\" when the expiry has passed.\n *\n * Usage:\n *   <CountdownTimer expiry={market.expiry} />\n *   <CountdownTimer expiry={market.expiry} className=\"text-sm text-muted-foreground\" />\n */\n\n\"use client\";\n\nimport { useState, useEffect } from \"react\";\nimport { formatCountdown } from \"../lib/format.js\";\n\nexport interface CountdownTimerProps {\n  /** UTC expiry date */\n  expiry: Date;\n  /** Additional CSS classes */\n  className?: string;\n  /** Called when the timer reaches zero (once) */\n  onExpire?: () => void;\n}\n\n/**\n * Live countdown timer that ticks every second.\n *\n * Renders the remaining time as a string (e.g. \"2h 15m 30s\").\n * Shows \"Settled\" after expiry.\n */\nexport function CountdownTimer({\n  expiry,\n  className = \"\",\n  onExpire,\n}: CountdownTimerProps) {\n  const [display, setDisplay] = useState(() => formatCountdown(expiry));\n  const [expired, setExpired] = useState(() => expiry.getTime() <= Date.now());\n\n  useEffect(() => {\n    // Recalculate when expiry changes.\n    setDisplay(formatCountdown(expiry));\n    setExpired(expiry.getTime() <= Date.now());\n  }, [expiry]);\n\n  useEffect(() => {\n    if (expired) return;\n\n    const interval = setInterval(() => {\n      const formatted = formatCountdown(expiry);\n      setDisplay(formatted);\n\n      if (formatted === \"Settled\") {\n        setExpired(true);\n        onExpire?.();\n        clearInterval(interval);\n      }\n    }, 1000);\n\n    return () => clearInterval(interval);\n  }, [expiry, expired, onExpire]);\n\n  return (\n    <span\n      className={`font-mono tabular-nums ${expired ? \"text-muted-foreground\" : \"\"} ${className}`}\n      aria-label={`Time until expiry: ${display}`}\n    >\n      {display}\n    </span>\n  );\n}\n"
-    },
     {
       "path": "lib/hip4/format.ts",
       "type": "registry:lib",
