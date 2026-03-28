@@ -68,13 +68,15 @@ export interface Outcome {
 }
 
 export interface MarketCardProps {
-  /** Variant — controls the layout and features shown */
+  /** Variant — auto-detected from market data if omitted */
   variant?: MarketVariant;
-  /** The market data (required for "event" and "recurring" variants) */
+  /** The market data — component auto-extracts underlying, sides, prices from this */
   market?: Market;
-  /** Yes mid price (0–1). Required for "event" / "recurring". */
+  /** Live mid prices map — component reads mids[market.yesCoin] automatically */
+  mids?: Record<string, string>;
+  /** Override: Yes mid price (0–1). Auto-resolved from mids if not set. */
   yesMid?: number | string;
-  /** No mid price (0–1). Defaults to 1 − yesMid. */
+  /** Override: No mid price (0–1). Defaults to 1 − yesMid. */
   noMid?: number | string;
   /** Optional 24h volume in USDH */
   volume?: number;
@@ -83,20 +85,16 @@ export interface MarketCardProps {
   /** Additional CSS classes */
   className?: string;
 
-  // ── "recurring" variant extras ──────────────────────────────────────────────
-  /** Underlying asset symbol, e.g. "BTC" — for recurring variant */
+  // ── Overrides (auto-extracted from market if not set) ──────────────────────
+  /** Override: Underlying asset symbol. Auto-extracted from market.description for recurring. */
   underlying?: string;
-
-  // ── "named-binary" variant extras ──────────────────────────────────────────
-  /** Title for named-binary card */
+  /** Override: Card title for named-binary. */
   title?: string;
-  /** Named sides — for named-binary variant */
+  /** Override: Named sides for named-binary variant. */
   sides?: NamedSide[];
-
-  // ── "question" variant extras ───────────────────────────────────────────────
-  /** Question title — for question variant */
+  /** Override: Question title for question variant. */
   questionName?: string;
-  /** Outcomes to display — for question variant */
+  /** Override: Outcomes for question variant. */
   outcomes?: Outcome[];
 
   // ── Click handlers for side/outcome buttons ─────────────────────────────────
@@ -112,6 +110,35 @@ export interface MarketCardProps {
    * sideIndex: 0 = Yes, 1 = No.
    */
   onOutcomeClick?: (outcomeIndex: number, sideIndex: number) => void;
+}
+
+// ─── Variant auto-detection ──────────────────────────────────────────────────
+
+/**
+ * Auto-detect the card variant from market data.
+ * If `variant` is explicitly set, it takes priority.
+ * Otherwise, infer from the market's description and sides:
+ *   - description starts with "class:priceBinary" → "recurring"
+ *   - sides have custom names (not Yes/No) → "named-binary"
+ *   - outcomes array provided → "question"
+ *   - default → "event"
+ */
+function detectVariant(props: MarketCardProps): MarketVariant {
+  if (props.variant) return props.variant;
+
+  // Question variant — outcomes array provided
+  if (props.outcomes && props.outcomes.length > 0) return "question";
+
+  // Named binary — sides array with custom names
+  if (props.sides && props.sides.length >= 2) return "named-binary";
+
+  // Recurring — market has an underlying asset (priceBinary markets always have this)
+  if (props.market?.underlying) return "recurring";
+
+  // Recurring — underlying prop set explicitly
+  if (props.underlying) return "recurring";
+
+  return "event";
 }
 
 // ─── Colour helpers ───────────────────────────────────────────────────────────
@@ -524,26 +551,36 @@ function EventCard({
  * />
  * ```
  */
-export function MarketCard({
-  variant = "event",
-  market,
-  yesMid: yesMidProp,
-  noMid: noMidProp,
-  volume,
-  onClick,
-  className = "",
-  // recurring
-  underlying,
-  // named-binary
-  title,
-  sides,
-  // question
-  questionName,
-  outcomes,
-  // click handlers
-  onSideClick,
-  onOutcomeClick,
-}: MarketCardProps) {
+export function MarketCard(props: MarketCardProps) {
+  const {
+    market,
+    mids,
+    volume,
+    onClick,
+    className = "",
+    onSideClick,
+    onOutcomeClick,
+  } = props;
+
+  // Auto-detect variant from market data
+  const variant = detectVariant(props);
+
+  // Auto-resolve prices from mids map
+  const yesMidProp = props.yesMid ?? (mids && market ? mids[market.yesCoin] : undefined);
+  const noMidProp = props.noMid ?? (mids && market ? mids[market.noCoin] : undefined);
+
+  // Auto-extract underlying from market data for recurring
+  const underlying = props.underlying ?? market?.underlying;
+
+  // Auto-extract title/sides/outcomes from market data
+  // Market has no name field — derive a label from underlying + period for recurring markets.
+  const derivedTitle = market?.underlying
+    ? `${market.underlying}-${market.period}`
+    : undefined;
+  const title = props.title ?? derivedTitle;
+  const sides = props.sides;
+  const questionName = props.questionName;
+  const outcomes = props.outcomes;
   if (variant === "named-binary") {
     if (!sides || sides.length === 0) return null;
     return (

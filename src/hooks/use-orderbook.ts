@@ -12,9 +12,19 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { subscribeBook } from "@purrdict/hip4";
-import type { BookLevel, HIP4Client, Subscription } from "@purrdict/hip4";
+import type { ISubscription } from "@nktkas/hyperliquid";
+import type { HIP4Client } from "./use-hip4-client.js";
 import { useHIP4Context } from "./hip4-provider.js";
+
+/** A single price level in the orderbook */
+export interface BookLevel {
+  /** Price as a string, e.g. "0.65000" */
+  px: string;
+  /** Total size at this level, e.g. "150" */
+  sz: string;
+  /** Number of individual orders */
+  n: number;
+}
 
 export interface UseOrderbookResult {
   /** Bids sorted by price descending */
@@ -70,6 +80,7 @@ export function useOrderbook(
       "useOrderbook requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.",
     );
   }
+  const safeClient = resolvedClient;
 
   const [bids, setBids] = useState<BookLevel[]>([]);
   const [asks, setAsks] = useState<BookLevel[]>([]);
@@ -77,7 +88,7 @@ export function useOrderbook(
   const [midPrice, setMidPrice] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const subRef = useRef<Subscription | null>(null);
+  const subRef = useRef<ISubscription | null>(null);
 
   useEffect(() => {
     if (!resolvedCoin) return;
@@ -89,9 +100,8 @@ export function useOrderbook(
       setError(null);
 
       try {
-        subRef.current = await subscribeBook(
-          resolvedClient.sub,
-          resolvedCoin,
+        subRef.current = await safeClient.sub.l2Book(
+          { coin: resolvedCoin },
           (update) => {
             if (cancelled) return;
 

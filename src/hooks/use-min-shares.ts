@@ -12,8 +12,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getMinShares, fetchSpotMetaAndAssetCtxs } from "@purrdict/hip4";
-import type { HIP4Client } from "@purrdict/hip4";
+import { getMinShares } from "@purrdict/hip4";
+import type { HIP4Client } from "./use-hip4-client.js";
 import { useHIP4Context } from "./hip4-provider.js";
 
 export interface UseMinSharesResult {
@@ -57,6 +57,7 @@ export function useMinShares(
       "useMinShares requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.",
     );
   }
+  const safeClient = resolvedClient;
 
   const [minShares, setMinShares] = useState<number>(20);
   const [markPx, setMarkPx] = useState<number | null>(null);
@@ -68,25 +69,28 @@ export function useMinShares(
 
     let cancelled = false;
 
-    async function fetch() {
+    async function fetchData() {
       setIsLoading(true);
       setError(null);
 
       try {
-        const [, assetCtxs] = await fetchSpotMetaAndAssetCtxs(resolvedClient.info);
+        // spotMetaAndAssetCtxs returns [SpotMetaResponse, SpotAssetCtxSchema[]]
+        // SpotMetaResponse.tokens[i].name corresponds to SpotAssetCtxSchema[i].
+        // Prediction market coins appear as "#N" (e.g. "#9860") in token names.
+        const [spotMeta, ctxs] = await safeClient.info.spotMetaAndAssetCtxs();
 
         if (cancelled) return;
 
-        // Find the asset context whose coin matches.
-        const ctx = assetCtxs.find((a) => a.coin === resolvedCoin);
+        // Match the coin name against the spot meta tokens list.
+        const tokenIdx = spotMeta.tokens.findIndex((t) => t.name === resolvedCoin);
+        const matchedCtx = tokenIdx >= 0 ? ctxs[tokenIdx] : undefined;
 
-        if (ctx && ctx.markPx) {
-          const px = parseFloat(ctx.markPx);
+        if (matchedCtx && matchedCtx.markPx) {
+          const px = parseFloat(matchedCtx.markPx);
           setMarkPx(px);
           setMinShares(getMinShares(px));
         } else {
-          // Fall back to mid price from allMids if no ctx found.
-          // Default to 20 shares (assumes markPx near 0.5).
+          // Fall back: default to 20 shares (assumes markPx near 0.5).
           setMarkPx(null);
           setMinShares(20);
         }
@@ -101,7 +105,7 @@ export function useMinShares(
       }
     }
 
-    fetch();
+    fetchData();
 
     return () => {
       cancelled = true;

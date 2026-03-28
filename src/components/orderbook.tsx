@@ -10,7 +10,7 @@
 
 "use client";
 
-import type { BookLevel } from "@purrdict/hip4";
+import type { BookLevel } from "../hooks/use-orderbook.js";
 import { formatMidPrice } from "../lib/format.js";
 
 export interface OrderbookProps {
@@ -40,10 +40,10 @@ function LevelRow({ level, side, maxSize, onPriceClick }: LevelRowProps) {
   const sz = parseFloat(level.sz);
   const fillPct = maxSize > 0 ? (sz / maxSize) * 100 : 0;
 
-  const bidBg = "bg-green-500/10";
-  const askBg = "bg-red-500/10";
-  const bidText = "text-green-500";
-  const askText = "text-red-500";
+  const bidBg = "bg-success/10";
+  const askBg = "bg-destructive/10";
+  const bidText = "text-success";
+  const askText = "text-destructive";
 
   return (
     <div

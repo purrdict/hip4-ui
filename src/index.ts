@@ -27,7 +27,7 @@ export { useMarkets } from "./hooks/use-markets.js";
 export type { UseMarketsResult } from "./hooks/use-markets.js";
 
 export { useOrderbook } from "./hooks/use-orderbook.js";
-export type { UseOrderbookResult } from "./hooks/use-orderbook.js";
+export type { BookLevel, UseOrderbookResult } from "./hooks/use-orderbook.js";
 
 export { useTrade } from "./hooks/use-trade.js";
 export type { TradeParams, UseTradeResult } from "./hooks/use-trade.js";
@@ -39,7 +39,7 @@ export { useMarket } from "./hooks/use-market.js";
 export type { UseMarketResult } from "./hooks/use-market.js";
 
 export { usePortfolio } from "./hooks/use-portfolio.js";
-export type { Position, UsePortfolioResult } from "./hooks/use-portfolio.js";
+export type { TokenBalance, OpenOrder, Position, UsePortfolioResult } from "./hooks/use-portfolio.js";
 
 // Components
 export { Countdown, CountdownTimer } from "./components/countdown.js";

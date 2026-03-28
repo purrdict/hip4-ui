@@ -11,14 +11,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import {
-  discoverMarkets,
-  fetchOutcomeMeta,
-  fetchAllMids,
-  subscribePrices,
-} from "@purrdict/hip4";
-import type { Market, Subscription } from "@purrdict/hip4";
-import type { HIP4Client } from "@purrdict/hip4";
+import { discoverMarkets } from "@purrdict/hip4";
+import type { Market } from "@purrdict/hip4";
+import type { ISubscription } from "@nktkas/hyperliquid";
+import type { HIP4Client } from "./use-hip4-client.js";
 import { useHIP4Context } from "./hip4-provider.js";
 
 export interface UseMarketsResult {
@@ -43,12 +39,15 @@ export function useMarkets(client?: HIP4Client): UseMarketsResult {
       "useMarkets requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.",
     );
   }
+  // Non-null assertion: TypeScript cannot narrow through the throw above into
+  // closures; capture as a guaranteed-non-null const for use inside effects.
+  const safeClient = resolvedClient;
 
   const [markets, setMarkets] = useState<Market[]>([]);
   const [mids, setMids] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const subRef = useRef<Subscription | null>(null);
+  const subRef = useRef<ISubscription | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,22 +57,33 @@ export function useMarkets(client?: HIP4Client): UseMarketsResult {
         setIsLoading(true);
         setError(null);
 
-        const [meta, initialMids] = await Promise.all([
-          fetchOutcomeMeta(resolvedClient.info),
-          fetchAllMids(resolvedClient.info),
+        const [rawMeta, initialMids] = await Promise.all([
+          safeClient.info.outcomeMeta(),
+          safeClient.info.allMids(),
         ]);
 
         if (cancelled) return;
+
+        // Adapt nktkas OutcomeMetaResponse to @purrdict/hip4 OutcomeMeta.
+        // The only difference: nktkas uses `question` (number) but our type uses `id`.
+        const meta = {
+          outcomes: rawMeta.outcomes,
+          questions: rawMeta.questions.map((q) => ({
+            id: q.question,
+            name: q.name,
+            namedOutcomes: q.namedOutcomes,
+          })),
+        };
 
         const discovered = discoverMarkets(meta, initialMids);
         setMarkets(discovered);
         setMids(initialMids);
         setIsLoading(false);
 
-        // Subscribe to live price updates.
-        subRef.current = await subscribePrices(resolvedClient.sub, ({ mids: update }) => {
+        // Subscribe to live price updates via WebSocket.
+        subRef.current = await safeClient.sub.allMids((event) => {
           if (!cancelled) {
-            setMids((prev) => ({ ...prev, ...update }));
+            setMids((prev) => ({ ...prev, ...event.mids }));
           }
         });
       } catch (err) {

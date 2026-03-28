@@ -19,7 +19,7 @@
 
 import React, { createContext, useContext, type ReactNode } from "react";
 import { useHIP4Client } from "./use-hip4-client.js";
-import type { HIP4Client } from "@purrdict/hip4";
+import type { HIP4Client } from "./use-hip4-client.js";
 
 // ---------------------------------------------------------------------------
 // Context
@@ -66,11 +66,9 @@ export interface HIP4ProviderProps {
  */
 export function HIP4Provider({
   testnet = false,
-  builderAddress,
-  builderFee,
   children,
 }: HIP4ProviderProps): React.ReactElement {
-  const client = useHIP4Client({ testnet, builderAddress, builderFee });
+  const client = useHIP4Client({ testnet });
 
   return React.createElement(
     HIP4Context.Provider,

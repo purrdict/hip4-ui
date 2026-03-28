@@ -1,6 +1,10 @@
 /**
  * usePortfolio — fetch balances, positions, and open orders for a user.
  *
+ * Uses @nktkas/hyperliquid InfoClient methods directly:
+ *   - client.info.spotClearinghouseState({ user }) for token balances
+ *   - client.info.frontendOpenOrders({ user }) for resting orders
+ *
  * Usage:
  *   const { usdh, positions, openOrders, isLoading } = usePortfolio(client, address);
  */
@@ -8,9 +12,36 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { getBalances, fetchOpenOrders } from "@purrdict/hip4";
-import type { HIP4Client, TokenBalance, OpenOrder } from "@purrdict/hip4";
+import type { HIP4Client } from "./use-hip4-client.js";
 import { useHIP4Context } from "./hip4-provider.js";
+
+/** A single token balance entry */
+export interface TokenBalance {
+  /** Coin symbol, e.g. "USDH", "#9860" */
+  coin: string;
+  /** Total balance as a number */
+  total: number;
+  /** Amount on hold (in open orders) as a number */
+  hold: number;
+  /** Entry notional value as a number */
+  entryNtl: number;
+}
+
+/** A single open (resting) order */
+export interface OpenOrder {
+  /** Coin symbol */
+  coin: string;
+  /** Order side: "B" = buy, "A" = ask/sell */
+  side: "B" | "A";
+  /** Limit price as a string */
+  limitPx: string;
+  /** Size as a string */
+  sz: string;
+  /** Order ID */
+  oid: number;
+  /** Timestamp in ms when the order was placed */
+  timestamp: number;
+}
 
 export interface Position {
   /** Coin name (e.g. "#9860") */
@@ -67,6 +98,7 @@ export function usePortfolio(
       "usePortfolio requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.",
     );
   }
+  const safeClient = resolvedClient;
   const [usdh, setUsdh] = useState<TokenBalance | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
   const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
@@ -89,28 +121,49 @@ export function usePortfolio(
       setError(null);
 
       try {
-        const [balances, orders] = await Promise.all([
-          getBalances(resolvedClient.info, resolvedAddress!),
-          fetchOpenOrders(resolvedClient.info, resolvedAddress!),
+        const [spotState, orders] = await Promise.all([
+          safeClient.info.spotClearinghouseState({ user: resolvedAddress as `0x${string}` }),
+          safeClient.info.frontendOpenOrders({ user: resolvedAddress as `0x${string}` }),
         ]);
 
         if (cancelled) return;
 
-        setUsdh(balances.usdh);
+        // Find USDH balance (coin === "USDH").
+        const usdhRaw = spotState.balances.find((b) => b.coin === "USDH");
+        if (usdhRaw) {
+          setUsdh({
+            coin: usdhRaw.coin,
+            total: parseFloat(usdhRaw.total),
+            hold: parseFloat(usdhRaw.hold),
+            entryNtl: parseFloat(usdhRaw.entryNtl),
+          });
+        } else {
+          setUsdh(null);
+        }
 
         // Extract outcome token positions from the "+" prefixed coins.
         const pos: Position[] = [];
-        balances.tokens.forEach((bal, coin) => {
+        for (const bal of spotState.balances) {
           // Outcome tokens: "+" + coinNum. Positive balance = long position.
-          if (coin.startsWith("+") && bal.total > 0) {
+          if (bal.coin.startsWith("+") && parseFloat(bal.total) > 0) {
             // Convert "+9860" → "#9860" for display.
-            const displayCoin = "#" + coin.slice(1);
-            pos.push({ coin: displayCoin, shares: bal.total });
+            const displayCoin = "#" + bal.coin.slice(1);
+            pos.push({ coin: displayCoin, shares: parseFloat(bal.total) });
           }
-        });
+        }
         setPositions(pos);
 
-        setOpenOrders(orders);
+        // Map nktkas FrontendOpenOrderSchema to our OpenOrder type.
+        setOpenOrders(
+          orders.map((o) => ({
+            coin: o.coin,
+            side: o.side,
+            limitPx: o.limitPx,
+            sz: o.sz,
+            oid: o.oid,
+            timestamp: o.timestamp,
+          })),
+        );
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err : new Error(String(err)));

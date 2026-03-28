@@ -1,8 +1,8 @@
 /**
- * useHIP4Client — creates and caches an @purrdict/hip4 client.
+ * useHIP4Client — creates and caches a Hyperliquid client bundle.
  *
+ * Wraps @nktkas/hyperliquid transports and clients into a single object.
  * The client is created once per component mount and cached in a ref.
- * It is closed on unmount to release the WebSocket connection.
  *
  * Usage:
  *   const client = useHIP4Client({ testnet: true });
@@ -12,50 +12,64 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { createClient } from "@purrdict/hip4";
-import type { HIP4Client, ClientConfig } from "@purrdict/hip4";
+import { HttpTransport, InfoClient, SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
 
-export interface UseHIP4ClientOptions extends Partial<ClientConfig> {
-  /**
-   * Connect to testnet. Default: false (mainnet).
-   * Alias: isTestnet.
-   */
+export interface UseHIP4ClientOptions {
+  /** Connect to testnet. Default: false (mainnet). */
   testnet?: boolean;
+  /** @deprecated No-op — builder config belongs at the order level, not the client level. */
+  builderAddress?: string;
+  /** @deprecated No-op — builder config belongs at the order level, not the client level. */
+  builderFee?: number;
+}
+
+/** The client bundle returned by useHIP4Client */
+export interface HIP4Client {
+  info: InfoClient;
+  sub: SubscriptionClient;
+  close: () => void;
 }
 
 /**
- * Create and cache an HIP4Client for the lifetime of the component.
+ * Create and cache a Hyperliquid client for the lifetime of the component.
  *
  * The client is stable across re-renders. A new client is only created
  * if `testnet` changes (which should be uncommon).
  */
 export function useHIP4Client(opts: UseHIP4ClientOptions = {}): HIP4Client {
-  const { testnet = false, builderAddress = "", builderFee = 0 } = opts;
+  const { testnet = false } = opts;
 
   const clientRef = useRef<HIP4Client | null>(null);
   const testnetRef = useRef<boolean>(testnet);
 
-  // Create client on first render or if testnet flag changes.
   if (clientRef.current === null || testnetRef.current !== testnet) {
-    // Close old client if it exists.
+    // Close old client if it exists
     if (clientRef.current !== null) {
-      clientRef.current.close().catch(() => undefined);
+      clientRef.current.close();
     }
 
-    clientRef.current = createClient({ testnet, builderAddress, builderFee });
+    const httpTransport = new HttpTransport({ isTestnet: testnet });
+    const wsTransport = new WebSocketTransport({ isTestnet: testnet });
+
+    clientRef.current = {
+      info: new InfoClient({ transport: httpTransport }),
+      sub: new SubscriptionClient({ transport: wsTransport }),
+      close: () => {
+        wsTransport.close();
+      },
+    };
     testnetRef.current = testnet;
   }
 
-  // Close the client on unmount.
+  // Close the client on unmount
   useEffect(() => {
     return () => {
       if (clientRef.current) {
-        clientRef.current.close().catch(() => undefined);
+        clientRef.current.close();
         clientRef.current = null;
       }
     };
   }, []);
 
-  // Non-null guaranteed by the initialization above.
   return clientRef.current!;
 }
