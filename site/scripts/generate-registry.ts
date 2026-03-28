@@ -165,12 +165,12 @@ function MarketGrid({ onSelect }: { onSelect: (m: Market) => void }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
       {markets.map((market) => {
-        const yesMid = mids[market.yesOutcome.coin]
-          ? parseFloat(mids[market.yesOutcome.coin])
+        const yesMid = mids[market.yesCoin]
+          ? parseFloat(mids[market.yesCoin])
           : null;
         return (
           <MarketCard
-            key={market.yesOutcome.coin}
+            key={market.yesCoin}
             market={market}
             yesMid={yesMid ?? 0.5}
             onClick={() => onSelect(market)}
@@ -190,21 +190,21 @@ function MarketGrid({ onSelect }: { onSelect: (m: Market) => void }) {
  *   TradeForm           -> receives bookData={{ bids, asks }}, auto-resolves mid/bid/ask
  */
 function TradingPanel({ market }: { market: Market }) {
-  const coin = market.yesOutcome.coin;
-  const { bids, asks, spread, midPrice } = useOrderbook(coin);
+  const coin = market.yesCoin;
+  const { bids, asks, midPrice } = useOrderbook(coin);
   const { minShares } = useMinShares(coin);
   const { trades } = useRecentTrades(coin);
 
   const sides = [
-    { name: market.yesOutcome.name ?? "Yes", coin },
-    ...(market.noOutcome ? [{ name: market.noOutcome.name ?? "No", coin: market.noOutcome.coin }] : []),
+    { name: "Yes", coin: market.yesCoin },
+    { name: "No", coin: market.noCoin },
   ];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
       <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-2">Orderbook</h3>
-        <Orderbook bids={bids} asks={asks} spread={spread} midPrice={midPrice} />
+        <Orderbook coin={coin} bids={bids} asks={asks} />
       </div>
       <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-2">Trade</h3>
@@ -327,7 +327,7 @@ const items: RegistryItem[] = [
     type: "registry:ui",
     title: "Orderbook",
     description:
-      "Dual-pane L2 orderbook with color-coded depth bars, spread display, and click-to-set-price. Feed with useOrderbook(coin) which returns { bids, asks, spread, midPrice }. Key props: bids (BookLevel[]), asks (BookLevel[]), spread? (number), midPrice? (number), onPriceClick? (price => void), userOrders? (array for highlighting).",
+      "Dual-pane L2 orderbook with color-coded depth bars, spread display, and click-to-set-price. Feed with useOrderbook(coin) which returns { bids, asks }. Key props: coin (string), bids (BookLevel[]), asks (BookLevel[]), depth? (number), onPriceClick? (price => void). Component calculates spread/mid internally.",
     author: AUTHOR,
     dependencies: ["@purrdict/hip4"],
     registryDependencies: [`${BASE_URL}/hip4-format.json`],
