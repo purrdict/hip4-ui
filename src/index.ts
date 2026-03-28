@@ -44,6 +44,9 @@ export type { TokenBalance, OpenOrder, Position, UsePortfolioResult } from "./ho
 export { useRecentTrades } from "./hooks/use-recent-trades.js";
 export type { RecentTrade, UseRecentTradesResult } from "./hooks/use-recent-trades.js";
 
+export { useUnderlyingPrice } from "./hooks/use-underlying-price.js";
+export type { UseUnderlyingPriceOptions, UseUnderlyingPriceResult } from "./hooks/use-underlying-price.js";
+
 // Components
 export { Countdown, CountdownTimer } from "./components/countdown.js";
 export type { CountdownProps, CountdownTimerProps } from "./components/countdown.js";
@@ -57,11 +60,12 @@ export type {
 } from "./components/market-card.js";
 
 export { Orderbook } from "./components/orderbook.js";
-export type { OrderbookProps } from "./components/orderbook.js";
+export type { OrderbookProps, OrderbookLevelClick } from "./components/orderbook.js";
 
 export { TradeForm, OrderSummary } from "./components/trade-form.js";
 export type {
   TradeFormProps,
+  TradeFormPrefill,
   TradeSubmitParams,
   TradeDirection,
   TradeOrderMode,

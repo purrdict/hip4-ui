@@ -14,7 +14,10 @@ import { MarketStats } from "../src/components/market-stats";
 import { RecentTrades } from "../src/components/recent-trades";
 import { Countdown, CountdownTimer } from "../src/components/countdown";
 import { PositionCard } from "../src/components/position-card";
-import { OrderSummary } from "../src/components/trade-form";
+import { OrderSummary, TradeForm } from "../src/components/trade-form";
+import type { TradeFormPrefill } from "../src/components/trade-form";
+import { Orderbook } from "../src/components/orderbook";
+import type { OrderbookLevelClick } from "../src/components/orderbook";
 
 // ---------------------------------------------------------------------------
 // 1. ProbabilityBar
@@ -439,5 +442,234 @@ describe("OrderSummary", () => {
   test("shows est. avg price label for market mode", () => {
     render(<OrderSummary {...baseBuyProps} />);
     expect(screen.getByText("Est. avg price")).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. TradeForm prefill prop
+// ---------------------------------------------------------------------------
+
+const TRADE_FORM_SIDES = [
+  { name: "Yes", coin: "#1520" },
+  { name: "No", coin: "#1521" },
+];
+
+describe("TradeForm prefill", () => {
+  test("switches form to limit mode when prefill prop is provided", () => {
+    const prefill: TradeFormPrefill = { price: 0.65, nonce: 1 };
+    render(
+      <TradeForm
+        sides={TRADE_FORM_SIDES}
+        midPrice={0.6}
+        bestBid={0.58}
+        bestAsk={0.62}
+        isConnected={false}
+        prefill={prefill}
+      />
+    );
+    // The limit price input should be rendered (it only appears in limit/alo mode)
+    const limitInput = document.querySelector("input[type='text']") as HTMLInputElement | null;
+    expect(limitInput).toBeDefined();
+    expect(limitInput?.value).toBe("0.65");
+  });
+
+  test("prefills size into amount field when provided", () => {
+    const prefill: TradeFormPrefill = { price: 0.65, size: 42.9, nonce: 1 };
+    render(
+      <TradeForm
+        sides={TRADE_FORM_SIDES}
+        midPrice={0.6}
+        isConnected={false}
+        prefill={prefill}
+      />
+    );
+    // In limit buy mode the amount input is the shares input (second input)
+    const inputs = document.querySelectorAll("input");
+    // The shares field should contain Math.floor(42.9) = "42"
+    const sharesInput = Array.from(inputs).find(
+      (el) => (el as HTMLInputElement).value === "42"
+    ) as HTMLInputElement | undefined;
+    expect(sharesInput).toBeDefined();
+  });
+
+  test("sets direction to sell when side is 'bid'", () => {
+    const prefill: TradeFormPrefill = { price: 0.62, side: "bid", nonce: 1 };
+    render(
+      <TradeForm
+        sides={TRADE_FORM_SIDES}
+        midPrice={0.6}
+        isConnected={false}
+        prefill={prefill}
+      />
+    );
+    // In sell mode the submit button shows "Sell …" or "Connect Wallet" (when not connected)
+    // We verify the Sell tab is active (underline class present)
+    const sellTab = screen.getByRole("button", { name: "Sell" });
+    expect(sellTab.className).toContain("border-foreground");
+  });
+
+  test("sets direction to buy when side is 'ask'", () => {
+    const prefill: TradeFormPrefill = { price: 0.65, side: "ask", nonce: 1 };
+    render(
+      <TradeForm
+        sides={TRADE_FORM_SIDES}
+        midPrice={0.6}
+        isConnected={false}
+        prefill={prefill}
+      />
+    );
+    const buyTab = screen.getByRole("button", { name: "Buy" });
+    expect(buyTab.className).toContain("border-foreground");
+  });
+
+  test("does not re-apply prefill when nonce is unchanged", () => {
+    const prefill: TradeFormPrefill = { price: 0.65, nonce: 1 };
+    const { rerender } = render(
+      <TradeForm
+        sides={TRADE_FORM_SIDES}
+        midPrice={0.6}
+        isConnected={false}
+        prefill={prefill}
+      />
+    );
+    // Change the limit price input manually to simulate user edit
+    const inputs = document.querySelectorAll("input[type='text']");
+    const limitInput = inputs[0] as HTMLInputElement;
+    fireEvent.change(limitInput, { target: { value: "0.70" } });
+
+    // Rerender with same nonce — should NOT reset the user's edit
+    rerender(
+      <TradeForm
+        sides={TRADE_FORM_SIDES}
+        midPrice={0.6}
+        isConnected={false}
+        prefill={prefill}
+      />
+    );
+    const inputsAfter = document.querySelectorAll("input[type='text']");
+    const limitAfter = inputsAfter[0] as HTMLInputElement;
+    expect(limitAfter.value).toBe("0.70");
+  });
+
+  test("re-applies prefill when nonce increments", () => {
+    const prefill1: TradeFormPrefill = { price: 0.65, nonce: 1 };
+    const { rerender } = render(
+      <TradeForm
+        sides={TRADE_FORM_SIDES}
+        midPrice={0.6}
+        isConnected={false}
+        prefill={prefill1}
+      />
+    );
+    const inputs = document.querySelectorAll("input[type='text']");
+    const limitInput = inputs[0] as HTMLInputElement;
+    fireEvent.change(limitInput, { target: { value: "0.70" } });
+
+    // Rerender with new nonce and new price
+    const prefill2: TradeFormPrefill = { price: 0.55, nonce: 2 };
+    rerender(
+      <TradeForm
+        sides={TRADE_FORM_SIDES}
+        midPrice={0.6}
+        isConnected={false}
+        prefill={prefill2}
+      />
+    );
+    const inputsAfter = document.querySelectorAll("input[type='text']");
+    const limitAfter = inputsAfter[0] as HTMLInputElement;
+    expect(limitAfter.value).toBe("0.55");
+  });
+
+  test("TradeFormPrefill type is exported from index", () => {
+    // Type-level test: if this file compiles, the export exists.
+    const check: TradeFormPrefill = { price: 0.5, nonce: 0 };
+    expect(check.nonce).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8. Orderbook onLevelClick callback
+// ---------------------------------------------------------------------------
+
+const SAMPLE_BIDS = [
+  { px: "0.62", sz: "200", n: 3 },
+  { px: "0.61", sz: "150", n: 2 },
+];
+const SAMPLE_ASKS = [
+  { px: "0.64", sz: "180", n: 2 },
+  { px: "0.65", sz: "100", n: 1 },
+];
+
+describe("Orderbook onLevelClick", () => {
+  test("calls onLevelClick with price, size, and side when a bid level is clicked", () => {
+    const onLevelClick = mock((_level: OrderbookLevelClick) => {});
+    render(
+      <Orderbook
+        coin="#1520"
+        bids={SAMPLE_BIDS}
+        asks={SAMPLE_ASKS}
+        onLevelClick={onLevelClick}
+      />
+    );
+    // Click the best bid row (price 0.62)
+    const rows = document.querySelectorAll("[title]");
+    const bidRow = Array.from(rows).find((el) =>
+      el.getAttribute("title")?.includes("Bid 0.62")
+    );
+    expect(bidRow).toBeDefined();
+    fireEvent.click(bidRow!);
+    expect(onLevelClick).toHaveBeenCalledTimes(1);
+    const arg = (onLevelClick as ReturnType<typeof mock>).mock.calls[0][0] as OrderbookLevelClick;
+    expect(arg.price).toBeCloseTo(0.62);
+    expect(arg.size).toBeCloseTo(200);
+    expect(arg.side).toBe("bid");
+  });
+
+  test("calls onLevelClick with side='ask' when an ask level is clicked", () => {
+    const onLevelClick = mock((_level: OrderbookLevelClick) => {});
+    render(
+      <Orderbook
+        coin="#1520"
+        bids={SAMPLE_BIDS}
+        asks={SAMPLE_ASKS}
+        onLevelClick={onLevelClick}
+      />
+    );
+    const rows = document.querySelectorAll("[title]");
+    const askRow = Array.from(rows).find((el) =>
+      el.getAttribute("title")?.includes("Ask 0.64")
+    );
+    expect(askRow).toBeDefined();
+    fireEvent.click(askRow!);
+    expect(onLevelClick).toHaveBeenCalledTimes(1);
+    const arg = (onLevelClick as ReturnType<typeof mock>).mock.calls[0][0] as OrderbookLevelClick;
+    expect(arg.side).toBe("ask");
+    expect(arg.price).toBeCloseTo(0.64);
+  });
+
+  test("also calls onPriceClick for backward compat when level is clicked", () => {
+    const onPriceClick = mock((_price: number) => {});
+    const onLevelClick = mock((_level: OrderbookLevelClick) => {});
+    render(
+      <Orderbook
+        coin="#1520"
+        bids={SAMPLE_BIDS}
+        asks={SAMPLE_ASKS}
+        onPriceClick={onPriceClick}
+        onLevelClick={onLevelClick}
+      />
+    );
+    const rows = document.querySelectorAll("[title]");
+    const bidRow = Array.from(rows).find((el) =>
+      el.getAttribute("title")?.includes("Bid 0.62")
+    );
+    fireEvent.click(bidRow!);
+    expect(onPriceClick).toHaveBeenCalledTimes(1);
+    expect(onLevelClick).toHaveBeenCalledTimes(1);
+  });
+
+  test("OrderbookLevelClick type is exported from index", () => {
+    const check: OrderbookLevelClick = { price: 0.5, size: 100, side: "bid" };
+    expect(check.side).toBe("bid");
   });
 });

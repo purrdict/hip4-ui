@@ -13,6 +13,12 @@
 import type { BookLevel } from "../hooks/use-orderbook.js";
 import { formatMidPrice } from "../lib/format.js";
 
+export interface OrderbookLevelClick {
+  price: number;
+  size: number;
+  side: "bid" | "ask";
+}
+
 export interface OrderbookProps {
   /** Coin name for display */
   coin: string;
@@ -22,8 +28,10 @@ export interface OrderbookProps {
   asks: BookLevel[];
   /** Number of levels to display. Default: 10 */
   depth?: number;
-  /** Called when a user clicks a price level (sets limit price) */
+  /** Called when a user clicks a price level (sets limit price). Kept for backward compat. */
   onPriceClick?: (price: number) => void;
+  /** Called when a user clicks a price level with full level data */
+  onLevelClick?: (level: OrderbookLevelClick) => void;
   /** Additional CSS classes */
   className?: string;
 }
@@ -33,12 +41,14 @@ interface LevelRowProps {
   side: "bid" | "ask";
   maxSize: number;
   onPriceClick?: (price: number) => void;
+  onLevelClick?: (level: OrderbookLevelClick) => void;
 }
 
-function LevelRow({ level, side, maxSize, onPriceClick }: LevelRowProps) {
+function LevelRow({ level, side, maxSize, onPriceClick, onLevelClick }: LevelRowProps) {
   const px = parseFloat(level.px);
   const sz = parseFloat(level.sz);
   const fillPct = maxSize > 0 ? (sz / maxSize) * 100 : 0;
+  const isBid = side === "bid";
 
   const bidBg = "bg-success/10";
   const askBg = "bg-destructive/10";
@@ -51,7 +61,10 @@ function LevelRow({ level, side, maxSize, onPriceClick }: LevelRowProps) {
         "relative flex items-center justify-between px-2 py-0.5 text-xs cursor-pointer select-none",
         "hover:bg-muted/50 transition-colors",
       ].join(" ")}
-      onClick={() => onPriceClick?.(px)}
+      onClick={() => {
+        onPriceClick?.(px);
+        onLevelClick?.({ price: px, size: sz, side: isBid ? "bid" : "ask" });
+      }}
       title={`${side === "bid" ? "Bid" : "Ask"} ${level.px} × ${level.sz} (${level.n} orders)`}
     >
       {/* Depth fill bar */}
@@ -82,6 +95,7 @@ export function Orderbook({
   asks,
   depth = 10,
   onPriceClick,
+  onLevelClick,
   className = "",
 }: OrderbookProps) {
   const visibleBids = bids.slice(0, depth);
@@ -118,6 +132,7 @@ export function Orderbook({
             side="ask"
             maxSize={maxSize}
             onPriceClick={onPriceClick}
+            onLevelClick={onLevelClick}
           />
         ))}
       </div>
@@ -143,6 +158,7 @@ export function Orderbook({
             side="bid"
             maxSize={maxSize}
             onPriceClick={onPriceClick}
+            onLevelClick={onLevelClick}
           />
         ))}
       </div>

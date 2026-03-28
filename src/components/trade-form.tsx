@@ -68,6 +68,17 @@ export interface TradeSubmitParams {
   size: string;
 }
 
+export interface TradeFormPrefill {
+  /** Price to set as limit price (0-1). Switches form to limit mode. */
+  price: number;
+  /** Number of shares to fill into the amount field */
+  size?: number;
+  /** Which side of the book was clicked. "ask" -> buy, "bid" -> sell */
+  side?: "bid" | "ask";
+  /** Monotonic counter. Increment to trigger even if price/size/side are identical. */
+  nonce: number;
+}
+
 export interface TradeFormProps {
   /** Market sides — [{name: "Yes", coin: "#..."}, {name: "No", coin: "#..."}] */
   sides: Array<{ name: string; coin: string }>;
@@ -95,6 +106,8 @@ export interface TradeFormProps {
   builder?: BuilderConfig;
   /** Called when order is submitted */
   onSubmit?: (params: TradeSubmitParams) => Promise<void>;
+  /** Prefill from orderbook level click */
+  prefill?: TradeFormPrefill;
   /** Additional CSS classes */
   className?: string;
 }
@@ -320,6 +333,7 @@ export function TradeForm({
   isConnected = false,
   builder,
   onSubmit,
+  prefill,
   className = "",
 }: TradeFormProps) {
   // Auto-resolve from bookData if provided, fallback to individual props
@@ -333,6 +347,20 @@ export function TradeForm({
   const [limitPrice, setLimitPrice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Prefill from orderbook level click (state adjustment during render — NOT useEffect)
+  const [lastPrefillNonce, setLastPrefillNonce] = useState(-1);
+  if (prefill && prefill.nonce !== lastPrefillNonce) {
+    setLastPrefillNonce(prefill.nonce);
+    setMode("limit");
+    setLimitPrice(prefill.price.toString());
+    if (prefill.size !== undefined) {
+      setAmount(Math.floor(prefill.size).toString());
+    }
+    if (prefill.side !== undefined) {
+      setDirection(prefill.side === "ask" ? "buy" : "sell");
+    }
+  }
 
   // Sync when parent changes initialSide (e.g. user clicked a side button on the card)
   useEffect(() => {
