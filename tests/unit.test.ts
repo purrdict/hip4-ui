@@ -5,21 +5,32 @@ import { test, expect, describe } from "bun:test";
 // ---------------------------------------------------------------------------
 
 describe("HIP4Provider exports", () => {
-  test("HIP4Provider component signature shape (conceptual)", () => {
-    // Validates the expected interface contract without requiring the module.
-    // When hip4-provider.tsx is implemented it should export HIP4Provider and useHIP4Context.
-    const provider = (_props: { testnet: boolean; children: unknown }) => null;
-    const hook = () => null;
-    expect(typeof provider).toBe("function");
-    expect(typeof hook).toBe("function");
+  test("hip4-provider.tsx file declares HIP4Provider export", async () => {
+    // Verify the source file declares the expected exports via static analysis.
+    // Dynamic import is not used here because @purrdict/hip4 does not re-export
+    // createClient from its main barrel (client.d.ts is separate), which causes
+    // Bun's module evaluator to throw a SyntaxError at import time — a pre-existing
+    // package limitation unrelated to our implementation.
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/hooks/hip4-provider.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(src).toContain("export function HIP4Provider");
+    expect(src).toContain("export function useHIP4Context");
+    expect(src).toContain("export interface HIP4ProviderProps");
   });
 
-  test("index.ts expected export names (conceptual)", () => {
-    // HIP4Provider and useHIP4Context should be added to index.ts
-    // once hip4-provider.tsx is implemented.
-    const expectedExports = ["HIP4Provider", "useHIP4Context"];
-    expect(expectedExports).toContain("HIP4Provider");
-    expect(expectedExports).toContain("useHIP4Context");
+  test("index.ts includes HIP4Provider and useHIP4Context re-exports", async () => {
+    // Verify the barrel export includes the provider once it is added.
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/index.ts", import.meta.url),
+      "utf8",
+    );
+    expect(src).toContain("HIP4Provider");
+    expect(src).toContain("useHIP4Context");
+    expect(src).toContain("HIP4ProviderProps");
   });
 });
 

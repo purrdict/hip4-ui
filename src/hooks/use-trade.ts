@@ -16,6 +16,7 @@ import { useState, useCallback } from "react";
 import { placeOrder, cancelOrder } from "@purrdict/hip4";
 import type { HIP4Client, OrderStatus, HIP4Config } from "@purrdict/hip4";
 import type { HIP4Signer } from "./use-hip4-signer.js";
+import { useHIP4Context } from "./hip4-provider.js";
 
 export interface TradeParams {
   /** Coin name, e.g. "#9860" */
@@ -70,20 +71,49 @@ export interface UseTradeResult {
 /**
  * Place and cancel orders for a HIP-4 prediction market.
  *
- * @param client  HIP4Client from useHIP4Client()
+ * @param client  HIP4Client — optional when wrapped in <HIP4Provider>
  * @param signer  HIP4Signer from useHIP4Signer() — null if wallet not connected
  */
 export function useTrade(
-  client: HIP4Client,
+  client: HIP4Client | undefined | null,
   signer: HIP4Signer | null,
+): UseTradeResult;
+export function useTrade(
+  signer: HIP4Signer | null,
+): UseTradeResult;
+export function useTrade(
+  clientOrSigner: HIP4Client | HIP4Signer | null | undefined,
+  signer?: HIP4Signer | null,
 ): UseTradeResult {
+  // Overload resolution: if first arg is null/undefined or has walletClient, it's the signer
+  // (context mode); otherwise it's the explicit client.
+  const isContextMode =
+    clientOrSigner === null ||
+    clientOrSigner === undefined ||
+    (typeof clientOrSigner === "object" && "walletClient" in clientOrSigner);
+
+  const explicitClient: HIP4Client | undefined = isContextMode
+    ? undefined
+    : (clientOrSigner as HIP4Client);
+  const resolvedSigner: HIP4Signer | null = isContextMode
+    ? (clientOrSigner as HIP4Signer | null)
+    : (signer ?? null);
+
+  const ctxClient = useHIP4Context();
+  const resolvedClient = explicitClient ?? ctxClient;
+  if (!resolvedClient) {
+    throw new Error(
+      "useTrade requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.",
+    );
+  }
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<OrderStatus | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
   const submitOrder = useCallback(
     async (params: TradeParams, isBuy: boolean): Promise<OrderStatus | null> => {
-      if (!signer) return null;
+      if (!resolvedSigner) return null;
 
       setIsSubmitting(true);
       setError(null);
@@ -92,13 +122,13 @@ export function useTrade(
         // Build effective config — allow per-order builder override.
         const effectiveConfig: HIP4Config = params.builder
           ? {
-              ...client.config,
+              ...resolvedClient.config,
               builderAddress: params.builder.address.toLowerCase(),
               builderFee: params.builder.fee,
             }
-          : client.config;
+          : resolvedClient.config;
 
-        const exchange = client.exchange(signer.walletClient);
+        const exchange = resolvedClient.exchange(resolvedSigner.walletClient);
 
         const result = await placeOrder(exchange, effectiveConfig, {
           asset: params.asset,
@@ -119,7 +149,7 @@ export function useTrade(
         setIsSubmitting(false);
       }
     },
-    [client, signer],
+    [resolvedClient, resolvedSigner],
   );
 
   const buy = useCallback(
@@ -134,12 +164,12 @@ export function useTrade(
 
   const cancel = useCallback(
     async (asset: number, oid: number): Promise<boolean> => {
-      if (!signer) return false;
+      if (!resolvedSigner) return false;
 
-      const exchange = client.exchange(signer.walletClient);
+      const exchange = resolvedClient.exchange(resolvedSigner.walletClient);
       return cancelOrder(exchange, asset, oid);
     },
-    [client, signer],
+    [resolvedClient, resolvedSigner],
   );
 
   return { buy, sell, cancel, isSubmitting, lastResult, error };

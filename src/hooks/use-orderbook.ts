@@ -14,6 +14,7 @@
 import { useState, useEffect, useRef } from "react";
 import { subscribeBook } from "@purrdict/hip4";
 import type { BookLevel, HIP4Client, Subscription } from "@purrdict/hip4";
+import { useHIP4Context } from "./hip4-provider.js";
 
 export interface UseOrderbookResult {
   /** Bids sorted by price descending */
@@ -31,29 +32,45 @@ export interface UseOrderbookResult {
 /**
  * Subscribe to the L2 orderbook for a specific coin.
  *
- * @param client  HIP4Client from useHIP4Client()
- * @param coin    Coin name — e.g. "#9860" for a prediction market yes coin
- */
-/**
- * Subscribe to the L2 orderbook for a specific coin.
+ * Two call signatures are supported:
+ *   useOrderbook(client, "#9860")   // explicit client
+ *   useOrderbook("#9860")           // reads client from <HIP4Provider>
  *
- * @param client  HIP4Client from useHIP4Client()
+ * @param client  HIP4Client — optional when wrapped in <HIP4Provider>
  * @param coin    Coin name — e.g. "#9860" for a prediction market yes coin
  *
  * Performance note: This hook calls `setState` on every book tick (typically
  * every 500ms). For a visually rendered orderbook that's perfectly fine —
  * the component needs to repaint on every update anyway.
- *
- * If you embed this in a parent that doesn't render the book itself (e.g. a
- * container that reads `midPrice` to position a chart), consider using a
- * `useRef` for the raw `bids`/`asks` data and a version counter for
- * triggering renders, so downstream components only rerender when the derived
- * value they care about actually changes.
  */
 export function useOrderbook(
-  client: HIP4Client,
+  client: HIP4Client | undefined,
   coin: string,
+): UseOrderbookResult;
+export function useOrderbook(
+  coin: string,
+): UseOrderbookResult;
+export function useOrderbook(
+  clientOrCoin: HIP4Client | string | undefined,
+  coin?: string,
 ): UseOrderbookResult {
+  // Overload resolution: if first arg is a string it's the coin (context mode).
+  const isContextMode = typeof clientOrCoin === "string";
+  const explicitClient: HIP4Client | undefined = isContextMode
+    ? undefined
+    : (clientOrCoin as HIP4Client | undefined);
+  const resolvedCoin: string = isContextMode
+    ? (clientOrCoin as string)
+    : (coin as string);
+
+  const ctxClient = useHIP4Context();
+  const resolvedClient = explicitClient ?? ctxClient;
+  if (!resolvedClient) {
+    throw new Error(
+      "useOrderbook requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.",
+    );
+  }
+
   const [bids, setBids] = useState<BookLevel[]>([]);
   const [asks, setAsks] = useState<BookLevel[]>([]);
   const [spread, setSpread] = useState<number | null>(null);
@@ -63,7 +80,7 @@ export function useOrderbook(
   const subRef = useRef<Subscription | null>(null);
 
   useEffect(() => {
-    if (!coin) return;
+    if (!resolvedCoin) return;
 
     let cancelled = false;
 
@@ -73,8 +90,8 @@ export function useOrderbook(
 
       try {
         subRef.current = await subscribeBook(
-          client.sub,
-          coin,
+          resolvedClient.sub,
+          resolvedCoin,
           (update) => {
             if (cancelled) return;
 
@@ -113,7 +130,7 @@ export function useOrderbook(
         subRef.current = null;
       }
     };
-  }, [client, coin]);
+  }, [resolvedClient, resolvedCoin]);
 
   return { bids, asks, spread, midPrice, isLoading, error };
 }

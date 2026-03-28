@@ -14,6 +14,7 @@
 import { useState, useEffect } from "react";
 import { getMinShares, fetchSpotMetaAndAssetCtxs } from "@purrdict/hip4";
 import type { HIP4Client } from "@purrdict/hip4";
+import { useHIP4Context } from "./hip4-provider.js";
 
 export interface UseMinSharesResult {
   /** Minimum shares required for a valid order at the current mark price */
@@ -27,20 +28,43 @@ export interface UseMinSharesResult {
 /**
  * Fetch the minimum order size for a prediction market coin.
  *
- * @param client  HIP4Client from useHIP4Client()
+ * @param client  HIP4Client — optional when wrapped in <HIP4Provider>
  * @param coin    Coin name — e.g. "#9860" for a prediction market yes coin
  */
 export function useMinShares(
-  client: HIP4Client,
+  client: HIP4Client | undefined,
   coin: string,
+): UseMinSharesResult;
+export function useMinShares(
+  coin: string,
+): UseMinSharesResult;
+export function useMinShares(
+  clientOrCoin: HIP4Client | string | undefined,
+  coin?: string,
 ): UseMinSharesResult {
+  const isContextMode = typeof clientOrCoin === "string";
+  const explicitClient: HIP4Client | undefined = isContextMode
+    ? undefined
+    : (clientOrCoin as HIP4Client | undefined);
+  const resolvedCoin: string = isContextMode
+    ? (clientOrCoin as string)
+    : (coin as string);
+
+  const ctxClient = useHIP4Context();
+  const resolvedClient = explicitClient ?? ctxClient;
+  if (!resolvedClient) {
+    throw new Error(
+      "useMinShares requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.",
+    );
+  }
+
   const [minShares, setMinShares] = useState<number>(20);
   const [markPx, setMarkPx] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!coin) return;
+    if (!resolvedCoin) return;
 
     let cancelled = false;
 
@@ -49,12 +73,12 @@ export function useMinShares(
       setError(null);
 
       try {
-        const [, assetCtxs] = await fetchSpotMetaAndAssetCtxs(client.info);
+        const [, assetCtxs] = await fetchSpotMetaAndAssetCtxs(resolvedClient.info);
 
         if (cancelled) return;
 
         // Find the asset context whose coin matches.
-        const ctx = assetCtxs.find((a) => a.coin === coin);
+        const ctx = assetCtxs.find((a) => a.coin === resolvedCoin);
 
         if (ctx && ctx.markPx) {
           const px = parseFloat(ctx.markPx);
@@ -82,7 +106,7 @@ export function useMinShares(
     return () => {
       cancelled = true;
     };
-  }, [client, coin]);
+  }, [resolvedClient, resolvedCoin]);
 
   return { minShares, markPx, isLoading, error };
 }

@@ -17,6 +17,9 @@
 export { useHIP4Client } from "./hooks/use-hip4-client.js";
 export type { UseHIP4ClientOptions } from "./hooks/use-hip4-client.js";
 
+export { HIP4Provider, useHIP4Context } from "./hooks/hip4-provider.js";
+export type { HIP4ProviderProps } from "./hooks/hip4-provider.js";
+
 export { useHIP4Signer } from "./hooks/use-hip4-signer.js";
 export type { HIP4Signer } from "./hooks/use-hip4-signer.js";
 

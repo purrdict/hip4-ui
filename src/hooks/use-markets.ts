@@ -19,6 +19,7 @@ import {
 } from "@purrdict/hip4";
 import type { Market, Subscription } from "@purrdict/hip4";
 import type { HIP4Client } from "@purrdict/hip4";
+import { useHIP4Context } from "./hip4-provider.js";
 
 export interface UseMarketsResult {
   /** All active priceBinary markets */
@@ -32,9 +33,17 @@ export interface UseMarketsResult {
 /**
  * Discover active markets and subscribe to live prices.
  *
- * @param client  HIP4Client from useHIP4Client()
+ * @param client  HIP4Client — optional when wrapped in <HIP4Provider>
  */
-export function useMarkets(client: HIP4Client): UseMarketsResult {
+export function useMarkets(client?: HIP4Client): UseMarketsResult {
+  const ctxClient = useHIP4Context();
+  const resolvedClient = client ?? ctxClient;
+  if (!resolvedClient) {
+    throw new Error(
+      "useMarkets requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.",
+    );
+  }
+
   const [markets, setMarkets] = useState<Market[]>([]);
   const [mids, setMids] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -50,8 +59,8 @@ export function useMarkets(client: HIP4Client): UseMarketsResult {
         setError(null);
 
         const [meta, initialMids] = await Promise.all([
-          fetchOutcomeMeta(client.info),
-          fetchAllMids(client.info),
+          fetchOutcomeMeta(resolvedClient.info),
+          fetchAllMids(resolvedClient.info),
         ]);
 
         if (cancelled) return;
@@ -62,7 +71,7 @@ export function useMarkets(client: HIP4Client): UseMarketsResult {
         setIsLoading(false);
 
         // Subscribe to live price updates.
-        subRef.current = await subscribePrices(client.sub, ({ mids: update }) => {
+        subRef.current = await subscribePrices(resolvedClient.sub, ({ mids: update }) => {
           if (!cancelled) {
             setMids((prev) => ({ ...prev, ...update }));
           }
@@ -84,7 +93,7 @@ export function useMarkets(client: HIP4Client): UseMarketsResult {
         subRef.current = null;
       }
     };
-  }, [client]);
+  }, [resolvedClient]);
 
   // Stable markets reference — prevents downstream rerenders when the
   // markets array contents haven't actually changed.
