@@ -3,7 +3,7 @@
   "name": "market-card",
   "type": "registry:ui",
   "title": "Market Card",
-  "description": "Display card for HIP-4 prediction markets with 4 variants: recurring (Up/Down), event (Yes/No), named-binary (custom sides), and question (multi-outcome).",
+  "description": "Display card for HIP-4 prediction markets with 4 variants: \"event\" (Yes/No), \"recurring\" (Up/Down with asset logo), \"named-binary\" (custom side names), \"question\" (multi-outcome). Pass market object from useMarkets() and yesMid from mids map. Key props: market (Market), yesMid (number), volume? (number), variant? (MarketVariant), onClick? (callback).",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [
     "@purrdict/hip4"

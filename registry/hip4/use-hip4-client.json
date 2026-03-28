@@ -3,7 +3,7 @@
   "name": "use-hip4-client",
   "type": "registry:hook",
   "title": "useHIP4Client",
-  "description": "Creates and caches an @purrdict/hip4 client with WebSocket subscription support. Manages lifecycle and cleanup on unmount.",
+  "description": "Creates and caches InfoClient + SubscriptionClient from @nktkas/hyperliquid. Returns { info, sub, close }. Cached in ref — stable across rerenders. Pass { testnet: true } for testnet. Usually consumed via HIP4Provider rather than directly.",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [
     "@purrdict/hip4"

@@ -3,7 +3,7 @@
   "name": "live-price-chart",
   "type": "registry:ui",
   "title": "Live Price Chart",
-  "description": "Real-time ticking price chart for prediction markets. Shows asset price history with 1-second updates, target price reference line, and asset-branded color. Polymarket-style.",
+  "description": "Canvas-based real-time price chart for prediction markets. Append PricePoint[] from a WebSocket subscription. Key props: symbol (string, e.g. 'BTC'), prices (PricePoint[]), currentPrice (number), targetPrice? (number), height? (number). No hook required — build price array manually from allMids or l2Book subscription.",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [],
   "registryDependencies": [

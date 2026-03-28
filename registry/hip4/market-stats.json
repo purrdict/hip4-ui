@@ -3,7 +3,7 @@
   "name": "market-stats",
   "type": "registry:ui",
   "title": "Market Stats",
-  "description": "Compact inline stats display showing volume, trade count, and unique trader count with icons.",
+  "description": "Compact inline stats bar showing volume, trade count, and unique trader count with icons. Pure presentation — pass data directly, no hook needed. Key props: volume (number, 24h USDH), trades (number, total count), traders (number, unique count).",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [],
   "registryDependencies": [

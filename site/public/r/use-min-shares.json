@@ -3,7 +3,7 @@
   "name": "use-min-shares",
   "type": "registry:hook",
   "title": "useMinShares",
-  "description": "Computes the minimum order size for a prediction market coin based on mark price from spotMetaAndAssetCtxs.",
+  "description": "Computes the minimum order size for a prediction market coin. Fetches mark price from spotMetaAndAssetCtxs, applies formula: ceil(10/max(min(markPx,1-markPx),0.01)). Returns { minShares: number, markPx: number|null, isLoading, error }. Pass minShares to TradeForm.",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [
     "@purrdict/hip4"

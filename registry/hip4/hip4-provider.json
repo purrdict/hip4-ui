@@ -3,7 +3,7 @@
   "name": "hip4-provider",
   "type": "registry:hook",
   "title": "HIP4Provider",
-  "description": "Optional React context provider for zero prop-drilling. Wrap your app in <HIP4Provider> and all hooks auto-resolve the client.",
+  "description": "React context provider — wrap your app in <HIP4Provider testnet={false}> and all hooks (useMarkets, useOrderbook, etc.) auto-resolve the client. No prop-drilling needed. Key props: testnet? (boolean, default false), children.",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [
     "@nktkas/hyperliquid"

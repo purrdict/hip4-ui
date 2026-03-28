@@ -3,7 +3,7 @@
   "name": "use-hip4-signer",
   "type": "registry:hook",
   "title": "useHIP4Signer",
-  "description": "Adapts any wagmi wallet (MetaMask, WalletConnect, Privy, etc.) to the HIP-4 SDK signer interface. Returns null when disconnected.",
+  "description": "Adapts any wagmi wallet to { address, walletClient } for use with ExchangeClient. Returns null when disconnected. Works with MetaMask, WalletConnect, Privy, Coinbase Wallet. Pass walletClient to new ExchangeClient({ transport, wallet: signer.walletClient }).",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [
     "wagmi",

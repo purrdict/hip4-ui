@@ -3,7 +3,7 @@
   "name": "trade-form",
   "type": "registry:ui",
   "title": "Trade Form",
-  "description": "Complete prediction market trade form with market/limit modes, order summary (payout, profit, slippage), tick-size validation, min-shares enforcement, and builder fee support.",
+  "description": "Complete prediction market trade form. Pass bookData={{ bids, asks }} from useOrderbook to auto-resolve mid/bid/ask. Requires sides array from market.sides (e.g. [{name: 'Yes', coin: '#9860'}]). Connect useTrade(exchange) for order submission via onSubmit. Key props: sides, bookData?, minShares? (from useMinShares), usdhBalance? (from usePortfolio), shareBalance?, isConnected?, builder? ({address, fee}), onSubmit? (TradeSubmitParams => Promise).",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [
     "@purrdict/hip4"

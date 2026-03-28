@@ -3,7 +3,7 @@
   "name": "use-orderbook",
   "type": "registry:hook",
   "title": "useOrderbook",
-  "description": "Subscribes to the L2 orderbook for a prediction market coin. Returns bids, asks, spread, and mid price with live WebSocket updates.",
+  "description": "Subscribes to the L2 orderbook for a prediction market coin via WebSocket. Returns { bids: BookLevel[], asks: BookLevel[], spread: number|null, midPrice: number|null, isLoading, error }. Pass { bids, asks } as bookData to TradeForm. Call as useOrderbook(coin) with HIP4Provider or useOrderbook(client, coin).",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [
     "@purrdict/hip4"

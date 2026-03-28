@@ -3,7 +3,7 @@
   "name": "use-trade",
   "type": "registry:hook",
   "title": "useTrade",
-  "description": "Place and cancel HIP-4 prediction market orders. Handles builder fee attachment, tick alignment, and order signing via the SDK.",
+  "description": "Place and cancel HIP-4 prediction market orders. Takes ExchangeClient (NOT HIP4Client) — create with new ExchangeClient({ transport, wallet }). Returns { buy(params), sell(params), cancel(asset, oid), isSubmitting, lastResult, error }. TradeParams: { coin, asset, shares, price, tif?, markPx?, builder? }.",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [
     "@purrdict/hip4"

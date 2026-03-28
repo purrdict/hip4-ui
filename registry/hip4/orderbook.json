@@ -3,7 +3,7 @@
   "name": "orderbook",
   "type": "registry:ui",
   "title": "Orderbook",
-  "description": "Dual-pane L2 orderbook with color-coded depth bars, spread display, user order highlighting, and click-to-set-price interaction.",
+  "description": "Dual-pane L2 orderbook with color-coded depth bars, spread display, and click-to-set-price. Feed with useOrderbook(coin) which returns { bids, asks, spread, midPrice }. Key props: bids (BookLevel[]), asks (BookLevel[]), spread? (number), midPrice? (number), onPriceClick? (price => void), userOrders? (array for highlighting).",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [
     "@purrdict/hip4"

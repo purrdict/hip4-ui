@@ -3,7 +3,7 @@
   "name": "use-portfolio",
   "type": "registry:hook",
   "title": "usePortfolio",
-  "description": "Fetches USDH balance, outcome token positions, and open orders for a wallet address. Stable return object with useCallback for refresh.",
+  "description": "Fetches USDH balance, outcome token positions, and open orders for a wallet address. Returns { usdh: TokenBalance|null, positions: Position[], openOrders: OpenOrder[], isLoading, error, refresh() }. Pass usdh.total to TradeForm as usdhBalance. Call refresh() after placing an order.",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [
     "@purrdict/hip4"

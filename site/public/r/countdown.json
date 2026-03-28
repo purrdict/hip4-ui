@@ -3,7 +3,7 @@
   "name": "countdown",
   "type": "registry:ui",
   "title": "Countdown",
-  "description": "Segmented countdown timer with urgency colors. Shows DAYS/HRS/MINS/SECS with red (<1h), amber (<6h), normal states. Includes text variant.",
+  "description": "Segmented countdown timer with urgency colors: red (<1h), amber (<6h), normal. Two variants: 'segments' (DAYS/HRS/MINS/SECS boxes) and 'text' (inline). Key props: expiry (Date), variant? ('segments' | 'text'). Pure presentation — no hook needed.",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [],
   "registryDependencies": [

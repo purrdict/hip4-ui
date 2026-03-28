@@ -3,7 +3,7 @@
   "name": "position-card",
   "type": "registry:ui",
   "title": "Position Card",
-  "description": "Displays a user's position with shares, current value, average entry, and unrealized P&L with color coding.",
+  "description": "Displays a user's position with shares, current value, average entry, and unrealized P&L. Feed with usePortfolio(address) for positions array, and mids from useMarkets for currentPrice. Key props: coin (string), shares (number), currentPrice (number), avgEntry? (number), onSell? (coin => void).",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [],
   "registryDependencies": [

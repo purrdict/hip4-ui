@@ -3,7 +3,7 @@
   "name": "probability-bar",
   "type": "registry:ui",
   "title": "Probability Bar",
-  "description": "Two-tone horizontal probability bar showing Yes/No (or custom) side probabilities with labels and smooth transitions.",
+  "description": "Two-tone horizontal probability bar. Pure presentation — pass probabilities directly, no hook needed. Key props: yesPx (number 0-1), noPx (number 0-1), yesLabel? (string, default 'Yes'), noLabel? (string, default 'No'). Uses --success and --destructive CSS variables.",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [],
   "files": [

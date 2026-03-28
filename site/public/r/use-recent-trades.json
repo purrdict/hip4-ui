@@ -3,7 +3,7 @@
   "name": "use-recent-trades",
   "type": "registry:hook",
   "title": "useRecentTrades",
-  "description": "Subscribes to recent trades for a prediction market coin. Returns live trade feed via WebSocket with initial history fetch.",
+  "description": "Subscribes to recent trades for a prediction market coin. Returns { trades: RecentTrade[], isLoading, error }. Each trade has { side: 'B'|'S', price: number, size: number, time: number }. Fetches initial history via HTTP then appends live trades via WebSocket. Pass trades to RecentTrades component.",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [
     "@nktkas/hyperliquid"

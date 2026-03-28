@@ -3,7 +3,7 @@
   "name": "hip4-format",
   "type": "registry:lib",
   "title": "HIP-4 Formatting Utilities",
-  "description": "Price, USDH, countdown, and period formatters for HIP-4 prediction market data.",
+  "description": "Price, USDH, countdown, and period formatters for HIP-4 prediction market data. Exports formatMidPrice(px, style?), formatUsdh(amount), formatTargetPrice(price), formatPeriod(market), parseMid(midStr). Used internally by MarketCard, Orderbook, PositionCard, and MarketStats.",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [],
   "files": [

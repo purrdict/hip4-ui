@@ -3,7 +3,7 @@
   "name": "use-markets",
   "type": "registry:hook",
   "title": "useMarkets",
-  "description": "Discovers active HIP-4 markets and subscribes to live mid prices via WebSocket. Returns stable markets array with useMemo to prevent downstream rerenders.",
+  "description": "Discovers all active HIP-4 markets and subscribes to live mid prices via WebSocket. Returns { markets: Market[], mids: Record<string, string>, isLoading, error }. Feed markets to MarketCard and mids[coin] for yesMid. Stable markets array (useMemo) prevents downstream rerenders.",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [
     "@purrdict/hip4"
