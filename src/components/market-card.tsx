@@ -78,7 +78,7 @@ export interface MarketCardProps {
   noMid?: number | string;
   /** Optional 24h volume in USDH */
   volume?: number;
-  /** Called when the card is clicked */
+  /** Called when the card body is clicked (navigate to market) */
   onClick?: () => void;
   /** Additional CSS classes */
   className?: string;
@@ -98,19 +98,33 @@ export interface MarketCardProps {
   questionName?: string;
   /** Outcomes to display — for question variant */
   outcomes?: Outcome[];
+
+  // ── Click handlers for side/outcome buttons ─────────────────────────────────
+  /**
+   * Called when a side button is clicked on event / recurring / named-binary variants.
+   * sideIndex: 0 = Yes/Up/SideA, 1 = No/Down/SideB.
+   * Use e.stopPropagation() internally so card onClick does not also fire.
+   */
+  onSideClick?: (sideIndex: number) => void;
+  /**
+   * Called when a Yes/No button is clicked on an outcome row in the question variant.
+   * outcomeIndex: index into the outcomes array.
+   * sideIndex: 0 = Yes, 1 = No.
+   */
+  onOutcomeClick?: (outcomeIndex: number, sideIndex: number) => void;
 }
 
 // ─── Colour helpers ───────────────────────────────────────────────────────────
 
 function yesColorClass(px: number): string {
-  if (px >= 0.6) return "text-green-500";
-  if (px <= 0.4) return "text-red-500";
+  if (px >= 0.6) return "text-success";
+  if (px <= 0.4) return "text-destructive";
   return "text-foreground";
 }
 
 function noColorClass(px: number): string {
-  if (px >= 0.6) return "text-green-500";
-  if (px <= 0.4) return "text-red-500";
+  if (px >= 0.6) return "text-success";
+  if (px <= 0.4) return "text-destructive";
   return "text-foreground";
 }
 
@@ -155,12 +169,14 @@ function RecurringCard({
   yesPx,
   underlying,
   onClick,
+  onSideClick,
   className,
 }: {
   market: Market;
   yesPx: number;
   underlying?: string;
   onClick?: () => void;
+  onSideClick?: (sideIndex: number) => void;
   className?: string;
 }) {
   const pct = Math.round(yesPx > 0.5 ? yesPx * 100 : (1 - yesPx) * 100);
@@ -190,8 +206,8 @@ function RecurringCard({
               Math.abs(yesPx - 0.5) < 0.01
                 ? "text-muted-foreground"
                 : isUp
-                  ? "text-green-500"
-                  : "text-red-500"
+                  ? "text-success"
+                  : "text-destructive"
             }`}
           >
             {pct}%
@@ -202,10 +218,16 @@ function RecurringCard({
       {/* Up / Down buttons */}
       <div className="px-4 pb-3 mt-auto">
         <div className="flex gap-2">
-          <button className="flex-1 text-center rounded-xl py-2.5 text-sm font-semibold bg-green-500/15 text-green-500 hover:bg-green-500/25 transition-colors">
+          <button
+            onClick={(e) => { e.stopPropagation(); onSideClick?.(0); }}
+            className="flex-1 text-center rounded-xl py-2.5 text-sm font-semibold bg-success/15 text-success hover:bg-success/25 transition-colors"
+          >
             Up
           </button>
-          <button className="flex-1 text-center rounded-xl py-2.5 text-sm font-semibold bg-red-500/15 text-red-500 hover:bg-red-500/25 transition-colors">
+          <button
+            onClick={(e) => { e.stopPropagation(); onSideClick?.(1); }}
+            className="flex-1 text-center rounded-xl py-2.5 text-sm font-semibold bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors"
+          >
             Down
           </button>
         </div>
@@ -226,11 +248,13 @@ function NamedBinaryCard({
   title,
   sides,
   onClick,
+  onSideClick,
   className,
 }: {
   title: string;
   sides: NamedSide[];
   onClick?: () => void;
+  onSideClick?: (sideIndex: number) => void;
   className?: string;
 }) {
   const sideA = sides[0];
@@ -271,12 +295,18 @@ function NamedBinaryCard({
       <div className="px-5 pb-5 mt-auto">
         <div className="flex gap-2">
           {sideA && (
-            <button className="flex-1 text-center rounded-xl py-2.5 text-sm font-semibold bg-green-500/15 text-green-500 hover:bg-green-500/25 transition-colors">
+            <button
+              onClick={(e) => { e.stopPropagation(); onSideClick?.(0); }}
+              className="flex-1 text-center rounded-xl py-2.5 text-sm font-semibold bg-success/15 text-success hover:bg-success/25 transition-colors"
+            >
               {sideA.name} {sideA.pct !== undefined ? `${sideA.pct}%` : ""}
             </button>
           )}
           {sideB && (
-            <button className="flex-1 text-center rounded-xl py-2.5 text-sm font-semibold bg-red-500/15 text-red-500 hover:bg-red-500/25 transition-colors">
+            <button
+              onClick={(e) => { e.stopPropagation(); onSideClick?.(1); }}
+              className="flex-1 text-center rounded-xl py-2.5 text-sm font-semibold bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors"
+            >
               {sideB.name} {sideB.pct !== undefined ? `${sideB.pct}%` : ""}
             </button>
           )}
@@ -292,11 +322,13 @@ function QuestionCard({
   questionName,
   outcomes,
   onClick,
+  onOutcomeClick,
   className,
 }: {
   questionName: string;
   outcomes: Outcome[];
   onClick?: () => void;
+  onOutcomeClick?: (outcomeIndex: number, sideIndex: number) => void;
   className?: string;
 }) {
   // Show top 2 outcomes, hide the rest
@@ -312,7 +344,7 @@ function QuestionCard({
 
       {/* Top 2 outcome rows */}
       <div className="px-1.5 pb-2 space-y-0.5">
-        {top2.map((outcome) => (
+        {top2.map((outcome, i) => (
           <div
             key={outcome.name}
             className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 hover:bg-secondary/50 transition-colors"
@@ -329,7 +361,7 @@ function QuestionCard({
               <div className="flex items-center gap-2.5 shrink-0">
                 <div className="w-16 h-1.5 rounded-full bg-secondary/60 overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-green-500/60 transition-all duration-500"
+                    className="h-full rounded-full bg-success/60 transition-all duration-500"
                     style={{ width: `${outcome.pct}%` }}
                   />
                 </div>
@@ -339,6 +371,22 @@ function QuestionCard({
               </div>
             ) : (
               <span className="text-sm text-muted-foreground w-11 text-right">--</span>
+            )}
+            {onOutcomeClick && (
+              <div className="flex gap-1 shrink-0">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onOutcomeClick(i, 0); }}
+                  className="rounded-lg px-2 py-1 text-[11px] font-semibold bg-success/15 text-success hover:bg-success/25 transition-colors"
+                >
+                  Yes
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onOutcomeClick(i, 1); }}
+                  className="rounded-lg px-2 py-1 text-[11px] font-semibold bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors"
+                >
+                  No
+                </button>
+              </div>
             )}
           </div>
         ))}
@@ -362,6 +410,7 @@ function EventCard({
   hasPrice,
   volume,
   onClick,
+  onSideClick,
   className,
 }: {
   market: Market;
@@ -370,6 +419,7 @@ function EventCard({
   hasPrice: boolean;
   volume?: number;
   onClick?: () => void;
+  onSideClick?: (sideIndex: number) => void;
   className?: string;
 }) {
   return (
@@ -396,13 +446,31 @@ function EventCard({
 
       {/* Yes / No prices */}
       <div className="grid grid-cols-2 gap-2 px-4 pb-3">
-        <div className="rounded bg-muted/50 p-2 text-center">
+        <div
+          role={onSideClick ? "button" : undefined}
+          tabIndex={onSideClick ? 0 : undefined}
+          onClick={onSideClick ? (e) => { e.stopPropagation(); onSideClick(0); } : undefined}
+          onKeyDown={onSideClick ? (e) => e.key === "Enter" && onSideClick(0) : undefined}
+          className={[
+            "rounded bg-muted/50 p-2 text-center",
+            onSideClick ? "cursor-pointer hover:bg-success/10 transition-colors" : "",
+          ].filter(Boolean).join(" ")}
+        >
           <p className="text-xs text-muted-foreground mb-0.5">Yes</p>
           <p className={`font-bold text-base tabular-nums ${hasPrice ? yesColorClass(yesPx) : "text-muted-foreground"}`}>
             {hasPrice ? formatMidPrice(yesPx, "cents") : "—"}
           </p>
         </div>
-        <div className="rounded bg-muted/50 p-2 text-center">
+        <div
+          role={onSideClick ? "button" : undefined}
+          tabIndex={onSideClick ? 0 : undefined}
+          onClick={onSideClick ? (e) => { e.stopPropagation(); onSideClick(1); } : undefined}
+          onKeyDown={onSideClick ? (e) => e.key === "Enter" && onSideClick(1) : undefined}
+          className={[
+            "rounded bg-muted/50 p-2 text-center",
+            onSideClick ? "cursor-pointer hover:bg-destructive/10 transition-colors" : "",
+          ].filter(Boolean).join(" ")}
+        >
           <p className="text-xs text-muted-foreground mb-0.5">No</p>
           <p className={`font-bold text-base tabular-nums ${hasPrice ? noColorClass(noPx) : "text-muted-foreground"}`}>
             {hasPrice ? formatMidPrice(noPx, "cents") : "—"}
@@ -472,6 +540,9 @@ export function MarketCard({
   // question
   questionName,
   outcomes,
+  // click handlers
+  onSideClick,
+  onOutcomeClick,
 }: MarketCardProps) {
   if (variant === "named-binary") {
     if (!sides || sides.length === 0) return null;
@@ -480,6 +551,7 @@ export function MarketCard({
         title={title ?? ""}
         sides={sides}
         onClick={onClick}
+        onSideClick={onSideClick}
         className={className}
       />
     );
@@ -492,6 +564,7 @@ export function MarketCard({
         questionName={questionName ?? ""}
         outcomes={outcomes}
         onClick={onClick}
+        onOutcomeClick={onOutcomeClick}
         className={className}
       />
     );
@@ -515,6 +588,7 @@ export function MarketCard({
         yesPx={yesPx}
         underlying={underlying}
         onClick={onClick}
+        onSideClick={onSideClick}
         className={className}
       />
     );
@@ -529,6 +603,7 @@ export function MarketCard({
       hasPrice={hasPrice}
       volume={volume}
       onClick={onClick}
+      onSideClick={onSideClick}
       className={className}
     />
   );

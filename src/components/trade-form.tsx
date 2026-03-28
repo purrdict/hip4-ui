@@ -1,63 +1,103 @@
 /**
- * TradeForm — full prediction market trade form.
+ * TradeForm — production-grade prediction market trade form.
  *
- * Handles all the HIP-4 footguns:
- *   - Tick-size aligned prices (5 significant figures)
- *   - Trailing zero stripping for signing
- *   - Minimum shares validation (getMinShares formula)
- *   - Market (FrontendMarket) vs limit (Gtc/Alo) order modes
- *   - Builder fee attachment
+ * Handles all HIP-4 trading footguns:
+ *   - Buy / Sell direction tabs (underline style)
+ *   - Market / Limit / Post-Only order mode select
+ *   - Side buttons with live prices (Yes/No or custom names)
+ *   - Bid/Ask/Mid context row for market orders
+ *   - "No shares" warning in sell mode
+ *   - Limit price input with Bid/Mid/Ask quick-fill buttons
+ *   - Dollar amount input (market buy) vs shares input (all other modes)
+ *   - Dollar presets ($1 $5 $10 $100) for market buy
+ *   - +/- share presets for limit buy, percentage presets for sell
+ *   - Max button
+ *   - Order summary with payout, slippage, spread
+ *   - Validation: min shares, balance, price band (37%–163% of mid)
+ *   - Submit button: "Buy {side}" / "Sell {side}", disabled/submitting, "Connect Wallet"
  *
- * Also exports OrderSummary — a standalone payout/spread/slippage summary block.
+ * Fully decoupled from app stores — all state comes via props.
+ *
+ * Also exports OrderSummary as a standalone component.
  *
  * Usage:
- *   <TradeForm
- *     market={market}
- *     side="Yes"
- *     currentPrice={0.55}
- *     minShares={20}
- *     onTrade={async (params) => await buy(params)}
- *   />
- *
- *   <OrderSummary
- *     isBuy={true}
- *     shares={100}
- *     cost={65}
- *     effectivePrice={0.65}
- *     mid={0.63}
- *     bestBid={0.62}
- *     bestAsk={0.65}
- *     mode="market"
- *     sideName="Yes"
- *   />
+ * ```tsx
+ * <TradeForm
+ *   sides={[{ name: "Yes", coin: "#1520" }, { name: "No", coin: "#1521" }]}
+ *   initialSide={0}
+ *   midPrice={0.63}
+ *   bestBid={0.62}
+ *   bestAsk={0.65}
+ *   minShares={20}
+ *   usdhBalance={150}
+ *   isConnected={true}
+ *   onSubmit={async (params) => { await placeOrder(params); }}
+ * />
+ * ```
  */
 
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
-import { getMinShares, roundToTick, formatPrice } from "@purrdict/hip4";
-import type { Market } from "@purrdict/hip4";
-import type { TradeParams } from "../hooks/use-trade.js";
-import { formatMidPrice, formatUsdh } from "../lib/format.js";
+import { useState, useMemo, useCallback, useEffect } from "react";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type TradeDirection = "buy" | "sell";
+export type TradeOrderMode = "market" | "limit" | "alo";
+
+/** Kept for backward compat — existing OrderSummary users still import OrderMode */
+export type OrderMode = TradeOrderMode;
+/** Kept for backward compat */
 export type TradeSide = "Yes" | "No";
-export type OrderMode = "market" | "limit";
 
-// ─── Format helpers (internal) ───────────────────────────────────────────────
-
-function fmtUsd(n: number): string {
-  if (n >= 1000) return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  return `$${n.toFixed(2)}`;
+export interface BuilderConfig {
+  address: string;
+  fee: number;
 }
 
-function fmtCents(price: number): string {
-  const c = price * 100;
-  if (c < 0.1) return `${c.toFixed(3)}¢`;
-  if (c < 1) return `${c.toFixed(2)}¢`;
-  return `${c.toFixed(1)}¢`;
+export interface TradeSubmitParams {
+  /** Index of the active side (0 = first, 1 = second) */
+  side: number;
+  /** Buy or sell direction */
+  direction: TradeDirection;
+  /** Order mode */
+  mode: TradeOrderMode;
+  /** Tick-aligned price string (5 sig figs) */
+  price: string;
+  /** Whole-number share count as string */
+  size: string;
 }
 
-// ─── OrderSummary ─────────────────────────────────────────────────────────────
+export interface TradeFormProps {
+  /** Market sides — [{name: "Yes", coin: "#..."}, {name: "No", coin: "#..."}] */
+  sides: Array<{ name: string; coin: string }>;
+  /** Initially selected side index. Default: 0 */
+  initialSide?: number;
+  /** Called when user changes active side */
+  onSideChange?: (sideIndex: number) => void;
+  /** Current mid price for the active side (0–1) */
+  midPrice?: number;
+  /** Best bid from orderbook (0–1) */
+  bestBid?: number;
+  /** Best ask from orderbook (0–1) */
+  bestAsk?: number;
+  /** Minimum shares for a valid order */
+  minShares?: number;
+  /** User's USDH balance for validation */
+  usdhBalance?: number;
+  /** User's share balance for sell validation */
+  shareBalance?: number;
+  /** Whether the user is connected/signed in */
+  isConnected?: boolean;
+  /** Builder fee config */
+  builder?: BuilderConfig;
+  /** Called when order is submitted */
+  onSubmit?: (params: TradeSubmitParams) => Promise<void>;
+  /** Additional CSS classes */
+  className?: string;
+}
+
+// ─── OrderSummary (also exported standalone) ──────────────────────────────────
 
 export interface OrderSummaryProps {
   /** true = buy order, false = sell order */
@@ -68,25 +108,58 @@ export interface OrderSummaryProps {
   cost: number;
   /** Effective fill price (0–1) */
   effectivePrice: number;
-  /** Current mid price (0–1) — used for slippage calculation */
+  /** Current mid price (0–1) — used for slippage */
   mid: number | null;
-  /** Best bid price (0–1) */
+  /** Best bid (0–1) */
   bestBid: number | null;
-  /** Best ask price (0–1) */
+  /** Best ask (0–1) */
   bestAsk: number | null;
-  /** Order mode — affects which rows are shown */
-  mode: OrderMode;
-  /** Human-readable side name (e.g. "Yes", "Up") */
+  /** Order mode */
+  mode: TradeOrderMode;
+  /** Human-readable side name */
   sideName: string;
   /** Additional CSS classes */
   className?: string;
 }
 
+function fmtUsd(n: number): string {
+  if (n >= 1000)
+    return `$${n.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  return `$${n.toFixed(2)}`;
+}
+
+function fmtCents(price: number): string {
+  const c = price * 100;
+  if (c < 0.1) return `${c.toFixed(3)}¢`;
+  if (c < 1) return `${c.toFixed(2)}¢`;
+  return `${c.toFixed(1)}¢`;
+}
+
+/**
+ * Round price to valid Hyperliquid tick (5 significant figures).
+ * Returns a trailing-zero-stripped string ready for the API.
+ */
+function roundToTick(price: number, roundDown = false): string {
+  if (price <= 0) return "0.00001";
+  const exp = Math.floor(Math.log10(price));
+  const tick = Math.pow(10, exp - 4);
+  const rounded = roundDown
+    ? Math.floor(price / tick) * tick
+    : Math.round(price / tick) * tick;
+  const decimals = Math.max(0, -(exp - 4));
+  const s = rounded.toFixed(decimals);
+  if (!s.includes(".")) return s;
+  return s.replace(/\.?0+$/, "");
+}
+
+const DOLLAR_PRESETS = [1, 5, 10, 100];
+const DEFAULT_MIN_SHARES = 20;
+
 /**
  * Order summary block showing payout, profit %, spread, and slippage.
- *
- * Slides in with a fade animation when rendered. Highlights wide spreads
- * (>5¢) and high slippage (>3%) in amber.
  *
  * Example:
  * ```tsx
@@ -117,10 +190,10 @@ export function OrderSummary({
 }: OrderSummaryProps) {
   if (shares <= 0 || effectivePrice <= 0) return null;
 
-  const payout = isBuy ? shares * 1.0 : 0; // if wins, each share pays $1
+  const payout = isBuy ? shares * 1.0 : 0;
   const proceeds = !isBuy ? shares * effectivePrice : 0;
   const toWin = isBuy ? payout - cost : proceeds;
-  const returnPct = isBuy && cost > 0 ? ((payout / cost - 1) * 100) : 0;
+  const returnPct = isBuy && cost > 0 ? (payout / cost - 1) * 100 : 0;
 
   const slippagePct =
     mid && mid > 0
@@ -142,21 +215,21 @@ export function OrderSummary({
         .filter(Boolean)
         .join(" ")}
     >
-      {/* Primary result row */}
       <div className="flex items-baseline justify-between">
         <span className="text-xs text-muted-foreground">
           {isBuy ? "Payout if wins" : "Est. proceeds"}
         </span>
-        <span className="text-xl font-bold tabular-nums text-green-500">
+        <span className="text-xl font-bold tabular-nums text-success">
           {fmtUsd(isBuy ? payout : proceeds)}
         </span>
       </div>
 
-      {/* Detail rows */}
       <div className="space-y-1">
         <div className="flex items-center justify-between text-[11px] tabular-nums">
           <span className="text-muted-foreground">Shares</span>
-          <span>{Math.floor(shares)} {sideName}</span>
+          <span>
+            {Math.floor(shares)} {sideName}
+          </span>
         </div>
 
         <div className="flex items-center justify-between text-[11px] tabular-nums">
@@ -169,13 +242,12 @@ export function OrderSummary({
         {isBuy && returnPct > 0 && (
           <div className="flex items-center justify-between text-[11px] tabular-nums">
             <span className="text-muted-foreground">Profit if wins</span>
-            <span className="text-green-500">
+            <span className="text-success">
               +{fmtUsd(toWin)} ({returnPct.toFixed(0)}%)
             </span>
           </div>
         )}
 
-        {/* Spread + slippage — market orders only */}
         {mode === "market" && (
           <>
             {spreadCents !== null && spreadCents > 0 && (
@@ -209,310 +281,567 @@ export function OrderSummary({
   );
 }
 
-export interface BuilderConfig {
-  address: string;
-  fee: number;
-}
-
-export interface TradeFormProps {
-  market: Market;
-  /** Active side */
-  side: TradeSide;
-  /** Called when user switches side */
-  onSideChange?: (side: TradeSide) => void;
-  /** Current mark/mid price for the selected side (0–1) */
-  currentPrice?: number;
-  /** Minimum shares for a valid order */
-  minShares?: number;
-  /** Optional builder fee */
-  builder?: BuilderConfig;
-  /** User's USDH balance (free) — used for balance validation */
-  usdhBalance?: number;
-  /**
-   * Called when the user submits the form.
-   * Receives the trade params. Caller is responsible for actual order placement.
-   */
-  onTrade?: (params: TradeParams) => Promise<void>;
-  /** Whether the connected wallet has signed in */
-  isConnected?: boolean;
-  /** Additional CSS classes */
-  className?: string;
-}
+// ─── TradeForm ────────────────────────────────────────────────────────────────
 
 /**
- * A complete trade form for HIP-4 prediction markets.
+ * Production-grade trade form for HIP-4 prediction markets.
  *
- * Supports market and limit modes. Validates min shares, notional, and
- * balance. Formats price according to tick size rules before submission.
+ * Decoupled from app stores — all data flows through props.
+ * Matches the layout of the production app (apps/hip4) exactly.
+ *
+ * Example:
+ * ```tsx
+ * <TradeForm
+ *   sides={[{ name: "Yes", coin: "#1520" }, { name: "No", coin: "#1521" }]}
+ *   initialSide={0}
+ *   midPrice={0.63}
+ *   bestBid={0.62}
+ *   bestAsk={0.65}
+ *   minShares={20}
+ *   usdhBalance={150}
+ *   isConnected={true}
+ *   onSubmit={async (params) => { await placeOrder(params); }}
+ * />
+ * ```
  */
 export function TradeForm({
-  market,
-  side,
+  sides,
+  initialSide = 0,
   onSideChange,
-  currentPrice = 0.5,
-  minShares = 20,
-  builder,
-  usdhBalance,
-  onTrade,
+  midPrice,
+  bestBid,
+  bestAsk,
+  minShares = DEFAULT_MIN_SHARES,
+  usdhBalance = 0,
+  shareBalance = 0,
   isConnected = false,
+  builder,
+  onSubmit,
   className = "",
 }: TradeFormProps) {
-  const [orderMode, setOrderMode] = useState<OrderMode>("limit");
-  const [sharesInput, setSharesInput] = useState("");
-  const [priceInput, setPriceInput] = useState(() =>
-    currentPrice > 0 ? formatPrice(currentPrice) : "0.5",
-  );
+  const [sideIdx, setSideIdxLocal] = useState(initialSide);
+  const [direction, setDirection] = useState<TradeDirection>("buy");
+  const [mode, setMode] = useState<TradeOrderMode>("market");
+  const [amount, setAmount] = useState("");
+  const [limitPrice, setLimitPrice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Derived values
-  const shares = parseInt(sharesInput, 10) || 0;
-  const limitPrice = parseFloat(priceInput) || 0;
+  // Sync when parent changes initialSide (e.g. user clicked a side button on the card)
+  useEffect(() => {
+    if (initialSide !== sideIdx) {
+      setSideIdxLocal(initialSide);
+    }
+  }, [initialSide]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Effective price: market uses currentPrice, limit uses user input.
-  const effectivePrice = orderMode === "market" ? currentPrice : limitPrice;
-
-  // Estimated cost (buy) or proceeds (sell — approx).
-  const estimatedCost = effectivePrice > 0 && shares > 0 ? effectivePrice * shares : 0;
-
-  // Minimum shares for current price.
-  const computedMinShares = useMemo(
-    () => getMinShares(effectivePrice > 0 ? effectivePrice : 0.5),
-    [effectivePrice],
+  const setSideIdx = useCallback(
+    (idx: number) => {
+      setSideIdxLocal(idx);
+      onSideChange?.(idx);
+    },
+    [onSideChange],
   );
 
-  const effectiveMinShares = Math.max(minShares, computedMinShares);
+  const activeSide = sides[sideIdx] ?? sides[0];
+  const mid = midPrice ?? null;
+
+  const isBuy = direction === "buy";
+  const isMarket = mode === "market";
+  // Market buy uses dollar input; everything else uses shares input.
+  const dollarInput = isMarket && isBuy;
+
+  // Effective fill price
+  const effectivePrice = useMemo(() => {
+    if (!isMarket) return parseFloat(limitPrice) || 0;
+    if (isBuy) return bestAsk ?? (mid ? Math.min(mid * 1.05, 0.99) : 0);
+    return bestBid ?? (mid ? Math.max(mid * 0.95, 0.01) : 0);
+  }, [isMarket, limitPrice, isBuy, bestBid, bestAsk, mid]);
+
+  const amtNum = parseFloat(amount) || 0;
+  const shares = dollarInput
+    ? effectivePrice > 0
+      ? amtNum / effectivePrice
+      : 0
+    : amtNum;
+  const cost = dollarInput ? amtNum : shares * effectivePrice;
+
+  const maxBuyShares =
+    effectivePrice > 0 ? Math.floor(usdhBalance / effectivePrice) : 0;
 
   // Validation
-  const validationError = useMemo<string | null>(() => {
-    if (shares <= 0) return null; // No input yet.
-    if (!Number.isInteger(shares)) return "Shares must be whole numbers.";
-    if (shares < effectiveMinShares)
-      return `Minimum order: ${effectiveMinShares} shares at this price.`;
-    if (orderMode === "limit") {
-      if (limitPrice <= 0 || limitPrice >= 1)
-        return "Limit price must be between 0 and 1.";
+  const validationErrors = useMemo<string[]>(() => {
+    const errors: string[] = [];
+    if (amtNum > 0 && shares > 0 && shares < minShares) {
+      const minCost = dollarInput ? Math.ceil(minShares * effectivePrice) : 0;
+      errors.push(
+        dollarInput
+          ? `Min ${minShares} shares — need ${fmtUsd(minCost)}+ at current price`
+          : `Min ${minShares} shares`,
+      );
     }
-    if (usdhBalance !== undefined && estimatedCost > usdhBalance)
-      return `Insufficient USDH. Need ${formatUsdh(estimatedCost)}, have ${formatUsdh(usdhBalance)}.`;
-    return null;
-  }, [shares, effectiveMinShares, orderMode, limitPrice, usdhBalance, estimatedCost]);
+    if (isBuy && amtNum > 0 && usdhBalance > 0 && cost > usdhBalance) {
+      errors.push(
+        `Insufficient USDH — need ${fmtUsd(cost)}, have ${fmtUsd(usdhBalance)}`,
+      );
+    }
+    if (!isBuy && amtNum > 0 && amtNum > shareBalance) {
+      errors.push(
+        `Insufficient shares — available: ${Math.floor(shareBalance)}`,
+      );
+    }
+    if (!isMarket) {
+      const px = parseFloat(limitPrice) || 0;
+      if (px <= 0 || px >= 1) errors.push("Price must be between 0¢ and 100¢");
+      if (mid && mid > 0) {
+        const lower = Math.max(0.00001, mid * 0.37);
+        const upper = Math.min(mid * 1.63, 0.99999);
+        if (px > 0 && (px < lower || px > upper)) {
+          errors.push(
+            `Price outside band (${(lower * 100).toFixed(1)}¢ – ${(upper * 100).toFixed(1)}¢)`,
+          );
+        }
+      }
+    }
+    return errors;
+  }, [
+    amtNum,
+    shares,
+    minShares,
+    dollarInput,
+    effectivePrice,
+    isBuy,
+    usdhBalance,
+    cost,
+    shareBalance,
+    isMarket,
+    limitPrice,
+    mid,
+  ]);
 
   const canSubmit =
     isConnected &&
-    shares >= effectiveMinShares &&
-    validationError === null &&
-    !isSubmitting;
+    !isSubmitting &&
+    amtNum > 0 &&
+    shares >= minShares &&
+    validationErrors.length === 0 &&
+    effectivePrice > 0;
 
-  const asset = side === "Yes" ? market.yesAsset : market.noAsset;
+  function addAmount(delta: number) {
+    setAmount((prev) => {
+      const current = parseFloat(prev) || 0;
+      return Math.max(0, current + delta).toString();
+    });
+  }
 
-  const handleSubmit = useCallback(async () => {
-    if (!canSubmit || !onTrade) return;
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!canSubmit || !onSubmit) return;
+      setSubmitError(null);
+      setIsSubmitting(true);
+      try {
+        const sizeStr = Math.floor(shares).toString();
+        let price: string;
+        if (isMarket) {
+          // Wide slippage tolerance — FrontendMarket fills at best price
+          const rawSlippage = isBuy
+            ? Math.min((bestAsk ?? mid ?? 0.5) * 1.3, 0.99)
+            : Math.max((bestBid ?? mid ?? 0.5) * 0.7, 0.01);
+          price = roundToTick(rawSlippage, !isBuy);
+        } else {
+          price = roundToTick(parseFloat(limitPrice) || 0);
+        }
+        await onSubmit({
+          side: sideIdx,
+          direction,
+          mode,
+          price,
+          size: sizeStr,
+        });
+        setAmount("");
+      } catch (err) {
+        setSubmitError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [
+      canSubmit,
+      onSubmit,
+      shares,
+      isMarket,
+      isBuy,
+      bestAsk,
+      bestBid,
+      mid,
+      limitPrice,
+      sideIdx,
+      direction,
+      mode,
+    ],
+  );
 
-    setSubmitError(null);
-    setIsSubmitting(true);
-
-    try {
-      const tif = orderMode === "market" ? "Ioc" : "Gtc";
-      // For market orders, use a wide price band (best available).
-      // For limit orders, snap to tick.
-      const price =
-        orderMode === "market"
-          ? side === "Yes"
-            ? 0.99
-            : 0.99
-          : roundToTick(limitPrice);
-
-      const params: TradeParams = {
-        coin: side === "Yes" ? market.yesCoin : market.noCoin,
-        asset,
-        shares,
-        price,
-        tif,
-        markPx: effectivePrice,
-        builder: builder
-          ? { address: builder.address, fee: builder.fee }
-          : undefined,
-      };
-
-      await onTrade(params);
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [canSubmit, onTrade, orderMode, side, market, shares, limitPrice, effectivePrice, asset, builder]);
+  // Side cents labels
+  const side0Cents =
+    sides[0] && mid !== null
+      ? `${(sideIdx === 0 ? mid : 1 - mid) * 100 > 0 ? ((sideIdx === 0 ? mid : 1 - mid) * 100).toFixed(1) : "—"}%`
+      : null;
+  const side1Cents =
+    sides[1] && mid !== null
+      ? `${(sideIdx === 1 ? mid : 1 - mid) * 100 > 0 ? ((sideIdx === 1 ? mid : 1 - mid) * 100).toFixed(1) : "—"}%`
+      : null;
 
   return (
-    <div className={`rounded-lg border bg-card text-card-foreground shadow-sm p-4 flex flex-col gap-4 ${className}`}>
-      {/* Side toggle */}
-      <div className="grid grid-cols-2 rounded-lg bg-muted p-1 gap-1">
-        {(["Yes", "No"] as TradeSide[]).map((s) => (
+    <form
+      onSubmit={handleSubmit}
+      className={["space-y-4", className].filter(Boolean).join(" ")}
+    >
+      {/* ── Buy / Sell + Mode select ── */}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-4">
           <button
-            key={s}
-            onClick={() => onSideChange?.(s)}
-            className={[
-              "py-1.5 rounded text-sm font-medium transition-colors",
-              side === s
-                ? s === "Yes"
-                  ? "bg-green-500 text-white shadow-sm"
-                  : "bg-red-500 text-white shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            ].join(" ")}
+            type="button"
+            onClick={() => setDirection("buy")}
+            className={`text-sm font-semibold pb-1 border-b-2 transition-colors ${
+              isBuy
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
           >
-            {s} {currentPrice > 0 && s === "Yes" && formatMidPrice(currentPrice, "cents")}
-            {currentPrice > 0 && s === "No" && formatMidPrice(1 - currentPrice, "cents")}
+            Buy
           </button>
-        ))}
-      </div>
-
-      {/* Order mode tabs */}
-      <div className="flex gap-2 text-sm">
-        {(["market", "limit"] as OrderMode[]).map((m) => (
           <button
-            key={m}
-            onClick={() => setOrderMode(m)}
-            className={[
-              "flex-1 py-1 rounded border text-sm font-medium transition-colors capitalize",
-              orderMode === m
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            ].join(" ")}
+            type="button"
+            onClick={() => setDirection("sell")}
+            className={`text-sm font-semibold pb-1 border-b-2 transition-colors ${
+              !isBuy
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
           >
-            {m === "market" ? "Market" : "Limit"}
+            Sell
           </button>
-        ))}
-      </div>
+        </div>
 
-      {/* Limit price input */}
-      {orderMode === "limit" && (
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground font-medium">
-            Limit Price (0–1)
-          </label>
-          <div className="relative">
-            <input
-              type="number"
-              min="0.001"
-              max="0.999"
-              step="0.00001"
-              value={priceInput}
-              onChange={(e) => setPriceInput(e.target.value)}
-              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="0.50000"
-              aria-label="Limit price"
+        <div className="relative">
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value as TradeOrderMode)}
+            className="appearance-none bg-transparent text-sm text-muted-foreground hover:text-foreground cursor-pointer pr-5 py-1 transition-colors focus:outline-none"
+          >
+            <option value="market">Market</option>
+            <option value="limit">Limit</option>
+            <option value="alo">Post-Only</option>
+          </select>
+          <svg
+            className="absolute right-0 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="m19.5 8.25-7.5 7.5-7.5-7.5"
             />
-          </div>
-          {limitPrice > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Tick-aligned: {formatPrice(limitPrice)}
-            </p>
-          )}
+          </svg>
         </div>
-      )}
+      </div>
 
-      {/* Shares input */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between">
-          <label className="text-xs text-muted-foreground font-medium">
-            Shares
-          </label>
+      {/* ── Side buttons ── */}
+      <div className="flex gap-2 min-w-0">
+        <button
+          type="button"
+          onClick={() => setSideIdx(0)}
+          className={`flex-1 min-w-0 rounded-xl py-3 px-3 text-sm font-semibold transition-all truncate ${
+            sideIdx === 0
+              ? "bg-success text-success-foreground shadow-sm"
+              : "bg-secondary/80 text-muted-foreground hover:bg-secondary"
+          }`}
+        >
+          {sides[0]?.name}
+          {side0Cents ? ` ${side0Cents}` : ""}
+        </button>
+        {sides.length > 1 && (
           <button
-            onClick={() => setSharesInput(String(effectiveMinShares))}
-            className="text-xs text-primary hover:underline"
+            type="button"
+            onClick={() => setSideIdx(1)}
+            className={`flex-1 min-w-0 rounded-xl py-3 px-3 text-sm font-semibold transition-all truncate ${
+              sideIdx === 1
+                ? "bg-destructive text-destructive-foreground shadow-sm"
+                : "bg-secondary/80 text-muted-foreground hover:bg-secondary"
+            }`}
           >
-            Min: {effectiveMinShares}
+            {sides[1]?.name}
+            {side1Cents ? ` ${side1Cents}` : ""}
           </button>
-        </div>
-        <input
-          type="number"
-          min={effectiveMinShares}
-          step={1}
-          value={sharesInput}
-          onChange={(e) => setSharesInput(e.target.value)}
-          className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-          placeholder={String(effectiveMinShares)}
-          aria-label="Number of shares"
-        />
-        {shares > 0 && (
-          <p className="text-xs text-muted-foreground">
-            {effectivePrice > 0 && `≈ ${formatUsdh(estimatedCost)}`}
-          </p>
         )}
       </div>
 
-      {/* Order summary */}
-      {shares >= effectiveMinShares && validationError === null && (
-        <div className="rounded bg-muted/50 p-2 text-xs space-y-1">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Side</span>
-            <span className={`font-medium ${side === "Yes" ? "text-green-500" : "text-red-500"}`}>
-              {side}
+      {/* ── Bid / Ask / Mid context row ── */}
+      {isMarket && (bestBid !== undefined || bestAsk !== undefined) && (
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1">
+          <span>
+            Bid{" "}
+            <span className="text-success font-medium tabular-nums">
+              {bestBid !== undefined ? fmtCents(bestBid) : "—"}
             </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Type</span>
-            <span className="font-medium capitalize">{orderMode}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Shares</span>
-            <span className="font-mono font-medium">{shares}</span>
-          </div>
-          {orderMode === "limit" && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Price</span>
-              <span className="font-mono font-medium">{formatPrice(limitPrice)}</span>
-            </div>
+          </span>
+          {mid !== null && (
+            <span className="text-muted-foreground/50">Mid {fmtCents(mid)}</span>
           )}
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Est. Cost</span>
-            <span className="font-mono font-medium">{formatUsdh(estimatedCost)}</span>
-          </div>
-          {builder && builder.fee > 0 && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Builder fee</span>
-              <span className="font-mono font-medium">{builder.fee / 10}bps (sell only)</span>
-            </div>
-          )}
+          <span>
+            Ask{" "}
+            <span className="text-destructive font-medium tabular-nums">
+              {bestAsk !== undefined ? fmtCents(bestAsk) : "—"}
+            </span>
+          </span>
         </div>
       )}
 
-      {/* Validation error */}
-      {validationError && shares > 0 && (
-        <p className="text-xs text-destructive" role="alert">
-          {validationError}
-        </p>
+      {/* ── No shares warning for sell mode ── */}
+      {!isBuy && shareBalance === 0 && isConnected && (
+        <div className="text-sm text-muted-foreground bg-secondary/50 rounded-xl px-4 py-3 text-center">
+          You don&apos;t hold any {activeSide?.name} shares
+        </div>
       )}
 
-      {/* Submit error */}
+      {/* ── Limit price input ── */}
+      {(mode === "limit" || mode === "alo") && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              {mode === "alo" ? "Post-only price" : "Limit price"}
+            </span>
+            <div className="flex gap-2">
+              {bestBid !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => setLimitPrice(bestBid.toString())}
+                  className="text-[10px] text-success/70 hover:text-success transition-colors tabular-nums"
+                >
+                  Bid {fmtCents(bestBid)}
+                </button>
+              )}
+              {mid !== null && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLimitPrice(
+                      mid.toFixed(5).replace(/0+$/, "").replace(/\.$/, ""),
+                    )
+                  }
+                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors tabular-nums"
+                >
+                  Mid {fmtCents(mid)}
+                </button>
+              )}
+              {bestAsk !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => setLimitPrice(bestAsk.toString())}
+                  className="text-[10px] text-destructive/70 hover:text-destructive transition-colors tabular-nums"
+                >
+                  Ask {fmtCents(bestAsk)}
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="relative">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={limitPrice}
+              onChange={(e) => setLimitPrice(e.target.value)}
+              placeholder={mid ? mid.toFixed(3) : "0.50"}
+              className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-right text-lg font-bold tabular-nums focus:outline-none focus:border-muted-foreground transition-colors"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Amount / Shares input ── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">
+            {dollarInput ? "Amount" : "Shares"}
+          </span>
+          {isBuy ? (
+            usdhBalance > 0 ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {dollarInput
+                  ? `Balance: ${fmtUsd(usdhBalance)}`
+                  : `Max ~${maxBuyShares.toLocaleString()} (${fmtUsd(usdhBalance)})`}
+              </span>
+            ) : null
+          ) : shareBalance > 0 ? (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              Available: {Math.floor(shareBalance)}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="relative">
+          {dollarInput && (
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-bold text-muted-foreground/40">
+              $
+            </span>
+          )}
+          <input
+            type="text"
+            inputMode={dollarInput ? "decimal" : "numeric"}
+            value={amount}
+            onChange={(e) =>
+              setAmount(
+                dollarInput
+                  ? e.target.value
+                  : e.target.value.replace(/[^0-9]/g, ""),
+              )
+            }
+            placeholder="0"
+            className="w-full bg-transparent text-right text-4xl font-bold tabular-nums focus:outline-none caret-foreground"
+          />
+          {amtNum > 0 && effectivePrice > 0 && (
+            <div className="text-right text-xs text-muted-foreground mt-1 tabular-nums">
+              {dollarInput
+                ? `~${Math.floor(shares)} shares`
+                : isBuy
+                  ? `Cost: ${fmtUsd(cost)}`
+                  : `~${fmtUsd(shares * effectivePrice)} proceeds`}
+            </div>
+          )}
+        </div>
+
+        {/* Presets */}
+        <div className="flex gap-1.5 flex-wrap">
+          {dollarInput ? (
+            <>
+              {DOLLAR_PRESETS.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => addAmount(d)}
+                  className="flex-1 rounded-full border border-border py-2 text-sm text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors"
+                >
+                  +${d}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setAmount(Math.floor(usdhBalance).toString())}
+                className="flex-1 rounded-full border border-border py-2 text-sm text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors"
+              >
+                Max
+              </button>
+            </>
+          ) : isBuy ? (
+            <>
+              {[-100, -10, 10, 100].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => addAmount(d)}
+                  className="flex-1 rounded-full border border-border py-2 text-sm text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors"
+                >
+                  {d > 0 ? `+${d}` : d}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setAmount(maxBuyShares.toString())}
+                className="flex-1 rounded-full border border-border py-2 text-sm text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors"
+              >
+                Max
+              </button>
+            </>
+          ) : (
+            <>
+              {[25, 50, 75, 100].map((pct) => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() =>
+                    setAmount(
+                      Math.floor((shareBalance * pct) / 100).toString(),
+                    )
+                  }
+                  className="flex-1 rounded-full border border-border py-2 text-sm text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors"
+                >
+                  {pct === 100 ? "Max" : `${pct}%`}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Validation errors ── */}
+      {validationErrors.length > 0 && (
+        <div className="space-y-1">
+          {validationErrors.map((err) => (
+            <div
+              key={err}
+              className="text-xs text-amber-500 bg-amber-500/5 rounded-lg px-3 py-1.5"
+            >
+              {err}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Submit error ── */}
       {submitError && (
         <p className="text-xs text-destructive" role="alert">
           {submitError}
         </p>
       )}
 
-      {/* Submit button */}
+      {/* ── Order summary ── */}
+      <OrderSummary
+        isBuy={isBuy}
+        shares={shares}
+        cost={cost}
+        effectivePrice={effectivePrice}
+        mid={mid}
+        bestBid={bestBid ?? null}
+        bestAsk={bestAsk ?? null}
+        mode={mode}
+        sideName={activeSide?.name ?? ""}
+      />
+
+      {/* ── Submit button ── */}
       <button
-        onClick={handleSubmit}
-        disabled={!canSubmit}
+        type="submit"
+        disabled={!canSubmit && isConnected}
         className={[
-          "w-full py-2.5 rounded-md font-medium text-sm transition-colors",
+          "w-full rounded-xl py-3.5 font-semibold text-sm transition-colors",
           !isConnected
-            ? "bg-muted text-muted-foreground cursor-not-allowed"
+            ? "bg-secondary text-muted-foreground hover:bg-secondary/80 cursor-pointer"
             : canSubmit
-              ? side === "Yes"
-                ? "bg-green-500 hover:bg-green-600 text-white"
-                : "bg-red-500 hover:bg-red-600 text-white"
+              ? sideIdx === 0
+                ? "bg-success text-success-foreground hover:bg-success/90"
+                : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
               : "bg-muted text-muted-foreground cursor-not-allowed",
-        ].join(" ")}
-        aria-disabled={!canSubmit}
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        aria-disabled={!canSubmit && isConnected}
       >
         {!isConnected
           ? "Connect Wallet"
           : isSubmitting
-            ? "Submitting..."
-            : `Buy ${side}`}
+            ? "Placing order..."
+            : isBuy
+              ? `Buy ${activeSide?.name}${shares >= minShares ? ` · ${Math.floor(shares)} shares` : ""}`
+              : `Sell ${activeSide?.name}${shares >= minShares ? ` · ${Math.floor(shares)} shares` : ""}`}
       </button>
-    </div>
+
+      {builder && builder.fee > 0 && (
+        <p className="text-center text-[10px] text-muted-foreground/50">
+          Builder fee {builder.fee / 10}bps on sell side
+        </p>
+      )}
+    </form>
   );
 }

@@ -53,6 +53,9 @@ export type { OrderbookProps } from "./components/orderbook.js";
 export { TradeForm, OrderSummary } from "./components/trade-form.js";
 export type {
   TradeFormProps,
+  TradeSubmitParams,
+  TradeDirection,
+  TradeOrderMode,
   OrderSummaryProps,
   TradeSide,
   OrderMode,
@@ -70,6 +73,9 @@ export type { MarketStatsProps } from "./components/market-stats.js";
 
 export { RecentTrades } from "./components/recent-trades.js";
 export type { RecentTradesProps, Trade } from "./components/recent-trades.js";
+
+export { LivePriceChart } from "./components/live-price-chart.js";
+export type { LivePriceChartProps, PricePoint } from "./components/live-price-chart.js";
 
 // Formatting utilities
 export {

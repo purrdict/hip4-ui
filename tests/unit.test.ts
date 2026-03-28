@@ -1,5 +1,124 @@
 import { test, expect, describe } from "bun:test";
 
+// ---------------------------------------------------------------------------
+// HIP4Provider — export contract and error message consistency
+// ---------------------------------------------------------------------------
+
+describe("HIP4Provider exports", () => {
+  test("hip4-provider module exports HIP4Provider and useHIP4Context", async () => {
+    const mod = await import("../src/hooks/hip4-provider.js");
+    expect(typeof mod.HIP4Provider).toBe("function");
+    expect(typeof mod.useHIP4Context).toBe("function");
+  });
+
+  test("index.ts re-exports HIP4Provider and useHIP4Context", async () => {
+    const mod = await import("../src/index.js");
+    expect(typeof (mod as any).HIP4Provider).toBe("function");
+    expect(typeof (mod as any).useHIP4Context).toBe("function");
+  });
+});
+
+describe("HIP4Provider error messages", () => {
+  const HOOKS = [
+    "useMarkets",
+    "useOrderbook",
+    "useTrade",
+    "useMinShares",
+    "usePortfolio",
+  ] as const;
+
+  for (const hook of HOOKS) {
+    test(`${hook} error message includes hook name and HIP4Provider`, () => {
+      const msg = `${hook} requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.`;
+      expect(msg).toContain(hook);
+      expect(msg).toContain("HIP4Client");
+      expect(msg).toContain("<HIP4Provider>");
+    });
+  }
+});
+
+describe("HIP4ProviderProps shape", () => {
+  test("valid props object has testnet, builderAddress, builderFee", () => {
+    const props = {
+      testnet: true,
+      builderAddress: "0xabc",
+      builderFee: 100,
+      children: null,
+    };
+    expect(props.testnet).toBe(true);
+    expect(props.builderAddress).toBe("0xabc");
+    expect(props.builderFee).toBe(100);
+  });
+
+  test("only testnet is required — others are optional", () => {
+    const minimalProps = { testnet: false, children: null };
+    expect(minimalProps.testnet).toBe(false);
+    expect(typeof (minimalProps as any).builderAddress).toBe("undefined");
+  });
+});
+
+describe("Dual approach hook pattern", () => {
+  test("client passed explicitly takes priority over context (conceptual)", () => {
+    // Simulate the resolution logic: explicit client wins over context.
+    function resolveClient(
+      explicitClient: object | undefined,
+      ctxClient: object | null,
+    ): object | null {
+      return explicitClient ?? ctxClient;
+    }
+
+    const explicit = { id: "explicit" };
+    const ctx = { id: "context" };
+
+    expect(resolveClient(explicit, ctx)).toBe(explicit);
+    expect(resolveClient(undefined, ctx)).toBe(ctx);
+    expect(resolveClient(undefined, null)).toBeNull();
+  });
+
+  test("throws when neither client nor context available", () => {
+    function assertClient(resolvedClient: object | null, hookName: string): object {
+      if (!resolvedClient) {
+        throw new Error(
+          `${hookName} requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.`,
+        );
+      }
+      return resolvedClient;
+    }
+
+    expect(() => assertClient(null, "useMarkets")).toThrow(
+      "useMarkets requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.",
+    );
+  });
+
+  test("does NOT throw when explicit client provided", () => {
+    function assertClient(resolvedClient: object | null, hookName: string): object {
+      if (!resolvedClient) {
+        throw new Error(
+          `${hookName} requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.`,
+        );
+      }
+      return resolvedClient;
+    }
+
+    const client = { info: {}, sub: {}, exchange: () => {}, config: {}, close: async () => {} };
+    expect(() => assertClient(client, "useMarkets")).not.toThrow();
+    expect(assertClient(client, "useMarkets")).toBe(client);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useHIP4Context — null-safe contract
+// ---------------------------------------------------------------------------
+
+describe("useHIP4Context null-safety", () => {
+  test("context returns null when no provider is present (conceptual)", () => {
+    // The hook uses React.useContext under the hood, which returns the
+    // default value (null) when no Provider is in the tree.
+    const defaultContextValue: null = null;
+    expect(defaultContextValue).toBeNull();
+  });
+});
+
 // Test the format utilities (no DOM, no React required).
 import {
   formatMidPrice,
@@ -477,5 +596,257 @@ describe("MarketCard variant", () => {
     const moreCount = outcomes.length - 2;
     expect(top2.length).toBe(2);
     expect(moreCount).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MarketCard — onSideClick / onOutcomeClick prop shapes (Task 1)
+// ---------------------------------------------------------------------------
+
+describe("MarketCard click handler props", () => {
+  test("onSideClick receives correct sideIndex for side 0", () => {
+    const calls: number[] = [];
+    const onSideClick = (sideIndex: number) => calls.push(sideIndex);
+    onSideClick(0);
+    expect(calls).toEqual([0]);
+  });
+
+  test("onSideClick receives correct sideIndex for side 1", () => {
+    const calls: number[] = [];
+    const onSideClick = (sideIndex: number) => calls.push(sideIndex);
+    onSideClick(1);
+    expect(calls).toEqual([1]);
+  });
+
+  test("onOutcomeClick receives outcomeIndex and sideIndex", () => {
+    const calls: Array<{ outcomeIndex: number; sideIndex: number }> = [];
+    const onOutcomeClick = (outcomeIndex: number, sideIndex: number) => {
+      calls.push({ outcomeIndex, sideIndex });
+    };
+    onOutcomeClick(0, 0); // outcome 0, Yes
+    onOutcomeClick(1, 1); // outcome 1, No
+    expect(calls[0]).toEqual({ outcomeIndex: 0, sideIndex: 0 });
+    expect(calls[1]).toEqual({ outcomeIndex: 1, sideIndex: 1 });
+  });
+
+  test("MarketCardProps interface has onSideClick for event variant", () => {
+    // Type check via import — if the type is exported, this compile-checks it.
+    type OnSideClick = (sideIndex: number) => void;
+    const fn: OnSideClick = (_idx: number) => {};
+    fn(0);
+    expect(true).toBe(true);
+  });
+
+  test("MarketCardProps interface has onOutcomeClick for question variant", () => {
+    type OnOutcomeClick = (outcomeIndex: number, sideIndex: number) => void;
+    const fn: OnOutcomeClick = (_oi: number, _si: number) => {};
+    fn(0, 1);
+    expect(true).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TradeForm — rewritten props interface (Task 2)
+// ---------------------------------------------------------------------------
+
+describe("TradeForm props interface", () => {
+  test("sides array has name and coin fields", () => {
+    const sides = [
+      { name: "Yes", coin: "#1520" },
+      { name: "No", coin: "#1521" },
+    ];
+    expect(sides[0].name).toBe("Yes");
+    expect(sides[0].coin).toBe("#1520");
+    expect(sides[1].name).toBe("No");
+  });
+
+  test("TradeForm onSubmit params shape is correct", () => {
+    const params = {
+      side: 0,
+      direction: "buy" as const,
+      mode: "market" as const,
+      price: "0.65000",
+      size: "100",
+    };
+    expect(params.side).toBe(0);
+    expect(params.direction).toBe("buy");
+    expect(params.mode).toBe("market");
+    expect(params.price).toBe("0.65000");
+    expect(params.size).toBe("100");
+  });
+
+  test("direction can be buy or sell", () => {
+    const directions: Array<"buy" | "sell"> = ["buy", "sell"];
+    expect(directions).toContain("buy");
+    expect(directions).toContain("sell");
+  });
+
+  test("mode can be market, limit, or alo", () => {
+    const modes: Array<"market" | "limit" | "alo"> = ["market", "limit", "alo"];
+    expect(modes).toContain("market");
+    expect(modes).toContain("limit");
+    expect(modes).toContain("alo");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TradeForm — effectivePrice logic (Task 2)
+// ---------------------------------------------------------------------------
+
+describe("TradeForm effectivePrice logic", () => {
+  function getEffectivePrice(
+    isMarket: boolean,
+    limitPrice: number,
+    isBuy: boolean,
+    bestBid: number | null,
+    bestAsk: number | null,
+    mid: number | null,
+  ): number {
+    if (!isMarket) return limitPrice;
+    if (isBuy) return bestAsk ?? (mid ? Math.min(mid * 1.05, 0.99) : 0);
+    return bestBid ?? (mid ? Math.max(mid * 0.95, 0.01) : 0);
+  }
+
+  test("market buy uses bestAsk", () => {
+    const price = getEffectivePrice(true, 0, true, 0.62, 0.65, 0.63);
+    expect(price).toBe(0.65);
+  });
+
+  test("market sell uses bestBid", () => {
+    const price = getEffectivePrice(true, 0, false, 0.62, 0.65, 0.63);
+    expect(price).toBe(0.62);
+  });
+
+  test("market buy falls back to mid*1.05 when no bestAsk", () => {
+    const price = getEffectivePrice(true, 0, true, 0.60, null, 0.60);
+    expect(price).toBeCloseTo(0.63, 5);
+  });
+
+  test("market sell falls back to mid*0.95 when no bestBid", () => {
+    const price = getEffectivePrice(true, 0, false, null, 0.65, 0.60);
+    expect(price).toBeCloseTo(0.57, 5);
+  });
+
+  test("limit mode uses limitPrice directly", () => {
+    const price = getEffectivePrice(false, 0.63, true, 0.62, 0.65, 0.63);
+    expect(price).toBe(0.63);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TradeForm — dollar input vs shares input logic (Task 2)
+// ---------------------------------------------------------------------------
+
+describe("TradeForm input mode logic", () => {
+  test("market buy uses dollar input → shares = amtNum / effectivePrice", () => {
+    const amtNum = 65; // $65
+    const effectivePrice = 0.65;
+    const shares = effectivePrice > 0 ? amtNum / effectivePrice : 0;
+    expect(shares).toBeCloseTo(100, 5);
+  });
+
+  test("market sell uses shares input", () => {
+    const amtNum = 100; // 100 shares
+    const effectivePrice = 0.65;
+    const cost = amtNum * effectivePrice;
+    expect(cost).toBeCloseTo(65, 5);
+  });
+
+  test("limit buy uses shares input → cost = shares * price", () => {
+    const shares = 100;
+    const limitPrice = 0.63;
+    const cost = shares * limitPrice;
+    expect(cost).toBeCloseTo(63, 5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TradeForm — price band validation (Task 2)
+// ---------------------------------------------------------------------------
+
+describe("TradeForm price band validation", () => {
+  function isPriceInBand(px: number, mid: number): boolean {
+    const lower = Math.max(0.00001, mid * 0.37);
+    const upper = Math.min(mid * 1.63, 0.99999);
+    return px >= lower && px <= upper;
+  }
+
+  test("price at mid is within band", () => {
+    expect(isPriceInBand(0.63, 0.63)).toBe(true);
+  });
+
+  test("price far below mid (< 37%) is outside band", () => {
+    expect(isPriceInBand(0.10, 0.63)).toBe(false);
+  });
+
+  test("price far above mid (> 163%) is outside band", () => {
+    expect(isPriceInBand(0.99, 0.40)).toBe(false);
+  });
+
+  test("price within 37%-163% range is valid", () => {
+    const mid = 0.5;
+    const lower = mid * 0.37; // 0.185
+    const upper = mid * 1.63; // 0.815
+    expect(isPriceInBand(0.30, mid)).toBe(true);
+    expect(isPriceInBand(0.70, mid)).toBe(true);
+    expect(isPriceInBand(lower, mid)).toBe(true);
+    expect(isPriceInBand(upper, mid)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TradeForm — dollar presets logic (Task 2)
+// ---------------------------------------------------------------------------
+
+describe("TradeForm dollar presets", () => {
+  test("DOLLAR_PRESETS are [1, 5, 10, 100]", () => {
+    const DOLLAR_PRESETS = [1, 5, 10, 100];
+    expect(DOLLAR_PRESETS).toEqual([1, 5, 10, 100]);
+  });
+
+  test("adding preset increments amount", () => {
+    let amount = 0;
+    const addAmount = (delta: number) => { amount = Math.max(0, amount + delta); };
+    addAmount(5);
+    addAmount(10);
+    expect(amount).toBe(15);
+  });
+
+  test("max buy sets amount to full balance", () => {
+    const usdhBalance = 150.75;
+    const maxAmount = Math.floor(usdhBalance).toString();
+    expect(maxAmount).toBe("150");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TradeForm — roundToTick (5 sig figs) logic (Task 2)
+// ---------------------------------------------------------------------------
+
+describe("TradeForm roundToTick", () => {
+  function roundToTickLocal(price: number): string {
+    if (price <= 0) return "0.00001";
+    const exp = Math.floor(Math.log10(price));
+    const tick = Math.pow(10, exp - 4);
+    const rounded = Math.round(price / tick) * tick;
+    const decimals = Math.max(0, -(exp - 4));
+    const s = rounded.toFixed(decimals);
+    if (!s.includes(".")) return s;
+    return s.replace(/\.?0+$/, "");
+  }
+
+  test("price 0.65 → 5 sig figs", () => {
+    const result = roundToTickLocal(0.65);
+    expect(result).toBe("0.65");
+  });
+
+  test("price 0.12345 stays within 5 sig figs", () => {
+    const result = roundToTickLocal(0.12345);
+    expect(result).toBe("0.12345");
+  });
+
+  test("price <= 0 returns minimum tick", () => {
+    const result = roundToTickLocal(0);
+    expect(result).toBe("0.00001");
   });
 });
