@@ -17,7 +17,7 @@
  *   const { markets } = useMarkets(explicitClient)
  */
 
-import React, { createContext, useContext, type ReactNode } from "react";
+import React, { createContext, useContext } from "react";
 import { useHIP4Client } from "./use-hip4-client.js";
 import type { HIP4Client } from "./use-hip4-client.js";
 
@@ -40,17 +40,8 @@ export interface HIP4ProviderProps {
    * Connect to Hyperliquid testnet. Default: false (mainnet).
    */
   testnet?: boolean;
-  /**
-   * Optional builder address for fee collection on sell orders.
-   * Passed through to useHIP4Client / createClient.
-   */
-  builderAddress?: string;
-  /**
-   * Optional builder fee in tenths of bps (f=100 → 0.1%).
-   * Passed through to useHIP4Client / createClient.
-   */
-  builderFee?: number;
-  children: ReactNode;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  children?: any;
 }
 
 // ---------------------------------------------------------------------------

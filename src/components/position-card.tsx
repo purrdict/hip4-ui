@@ -96,7 +96,7 @@ export function PositionCard({
           <div className="col-span-2">
             <p className="text-xs text-muted-foreground">Unrealized P&L</p>
             <p
-              className={`font-mono font-medium ${isProfit ? "text-green-500" : "text-red-500"}`}
+              className={`font-mono font-medium ${isProfit ? "text-success" : "text-destructive"}`}
             >
               {isProfit ? "+" : ""}
               {formatUsdh(pnl)}

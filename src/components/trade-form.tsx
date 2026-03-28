@@ -75,11 +75,13 @@ export interface TradeFormProps {
   initialSide?: number;
   /** Called when user changes active side */
   onSideChange?: (sideIndex: number) => void;
-  /** Current mid price for the active side (0–1) */
+  /** Orderbook data — component auto-resolves mid/bid/ask. Takes priority over individual props. */
+  bookData?: { bids: Array<{ px: string; sz: string }>; asks: Array<{ px: string; sz: string }> };
+  /** Override: Current mid price (0–1). Auto-calculated from bookData if not set. */
   midPrice?: number;
-  /** Best bid from orderbook (0–1) */
+  /** Override: Best bid (0–1). Auto-extracted from bookData if not set. */
   bestBid?: number;
-  /** Best ask from orderbook (0–1) */
+  /** Override: Best ask (0–1). Auto-extracted from bookData if not set. */
   bestAsk?: number;
   /** Minimum shares for a valid order */
   minShares?: number;
@@ -308,9 +310,10 @@ export function TradeForm({
   sides,
   initialSide = 0,
   onSideChange,
-  midPrice,
-  bestBid,
-  bestAsk,
+  bookData,
+  midPrice: midPriceProp,
+  bestBid: bestBidProp,
+  bestAsk: bestAskProp,
   minShares = DEFAULT_MIN_SHARES,
   usdhBalance = 0,
   shareBalance = 0,
@@ -319,6 +322,10 @@ export function TradeForm({
   onSubmit,
   className = "",
 }: TradeFormProps) {
+  // Auto-resolve from bookData if provided, fallback to individual props
+  const bestBid = bookData?.bids?.[0] ? parseFloat(bookData.bids[0].px) : bestBidProp;
+  const bestAsk = bookData?.asks?.[0] ? parseFloat(bookData.asks[0].px) : bestAskProp;
+  const midPrice = midPriceProp ?? (bestBid != null && bestAsk != null ? (bestBid + bestAsk) / 2 : undefined);
   const [sideIdx, setSideIdxLocal] = useState(initialSide);
   const [direction, setDirection] = useState<TradeDirection>("buy");
   const [mode, setMode] = useState<TradeOrderMode>("market");
