@@ -519,7 +519,7 @@ const registrySetup = `// components.json — add the hip4 registry
   </header>
 
   <!-- Sidebar + Content wrapper -->
-  <div class="mx-auto max-w-6xl flex">
+  <div class="mx-auto max-w-6xl flex overflow-x-hidden">
     <!-- Sidebar (desktop only) -->
     <aside class="hidden lg:block w-52 shrink-0 border-r sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto py-8 px-4">
       <nav class="space-y-6 text-xs">
@@ -579,7 +579,7 @@ const registrySetup = `// components.json — add the hip4 registry
                 <div>
                   <!-- Preview -->
                   {previewNames.has(c.name) && (
-                    <div class="border-b bg-muted/30 p-6 sm:p-8 flex items-center justify-center min-h-[200px]">
+                    <div class="border-b bg-muted/30 p-4 sm:p-8 flex items-center justify-center min-h-[200px] overflow-x-auto">
                       <PreviewSwitcher client:load name={c.name} />
                     </div>
                   )}
@@ -808,6 +808,8 @@ const registrySetup = `// components.json — add the hip4 registry
 
   <!-- Mobile sticky bottom nav — horizontally scrollable -->
   <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t safe-area-pb" style="background: hsl(var(--background))">
+    <!-- Fade gradient on right edge hints at horizontal scroll -->
+    <div class="absolute right-0 top-0 bottom-0 w-8 pointer-events-none z-10" style="background: linear-gradient(to right, transparent, hsl(var(--background)))"></div>
     <div class="flex overflow-x-auto scrollbar-none gap-1 px-2 py-2 text-[11px]">
       <a href="#components" class="shrink-0 rounded-md px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium">Components</a>
       {components.map((c: any) => (
@@ -822,7 +824,7 @@ const registrySetup = `// components.json — add the hip4 registry
       <a href="#quick-start" class="shrink-0 rounded-md px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium whitespace-nowrap">Quick Start</a>
     </div>
   </nav>
-  <!-- Bottom padding to prevent content being hidden behind sticky nav -->
+  <!-- Bottom padding for mobile nav -->
   <div class="lg:hidden h-12"></div>
 
   <!-- Copy button + mobile nav script -->
