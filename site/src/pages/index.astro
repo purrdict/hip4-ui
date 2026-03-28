@@ -17,7 +17,7 @@ const hooks = registry.items.filter((i: any) => i.type === "registry:hook");
 const libs = registry.items.filter((i: any) => i.type === "registry:lib");
 
 // Components that have interactive previews
-const previewNames = new Set(["market-card", "live-price-chart", "orderbook", "trade-form", "countdown", "position-card", "probability-bar", "market-stats", "recent-trades"]);
+const previewNames = new Set(["market-card", "live-price-chart", "probability-chart", "orderbook", "trade-form", "countdown", "position-card", "probability-bar", "market-stats", "recent-trades"]);
 
 // Component metadata
 const componentMeta: Record<string, { props: { name: string; type: string; desc: string }[]; usage: string }> = {
@@ -98,6 +98,29 @@ function PriceChart({ symbol, targetPrice }: {
       prices={prices}
       targetPrice={targetPrice}
       height={200}
+    />
+  )
+}`,
+  },
+  "probability-chart": {
+    props: [
+      { name: "series", type: "OutcomeSeries[]", desc: "Array of { id, label, color?, data, currentValue }" },
+      { name: "height", type: "number", desc: "Chart height in px. Default: 220" },
+      { name: "theme", type: '"light" | "dark"', desc: 'Color scheme. Default: "dark"' },
+    ],
+    usage: `import { ProbabilityChart } from "@/components/hip4/probability-chart"
+import { useProbabilityHistory } from "@/hooks/hip4/use-probability-history"
+
+// Multi-outcome question market (3+ outcomes)
+function QuestionChart({ markets }: { markets: Market[] }) {
+  const { series, isLoading } = useProbabilityHistory(markets)
+
+  if (isLoading) return <Skeleton />
+
+  return (
+    <ProbabilityChart
+      series={series}
+      height={220}
     />
   )
 }`,

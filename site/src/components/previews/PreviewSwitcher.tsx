@@ -17,10 +17,12 @@ import ProbabilityBarPreview from "./ProbabilityBarPreview";
 import MarketStatsPreview from "./MarketStatsPreview";
 import RecentTradesPreview from "./RecentTradesPreview";
 import LivePriceChartPreview from "./LivePriceChartPreview";
+import ProbabilityChartPreview from "./ProbabilityChartPreview";
 
 const previews: Record<string, React.ComponentType> = {
   "market-card": MarketCardPreview,
   "live-price-chart": LivePriceChartPreview,
+  "probability-chart": ProbabilityChartPreview,
   "orderbook": OrderbookPreview,
   "trade-form": TradeFormPreview,
   "countdown": CountdownPreview,
