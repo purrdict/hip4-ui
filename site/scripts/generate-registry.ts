@@ -21,7 +21,31 @@ const SCHEMA = "https://ui.shadcn.com/schema/registry-item.json";
 const BASE_URL = "https://ui.purrdict.xyz/r";
 
 function readSrc(path: string): string {
-  return readFileSync(join(SRC, path), "utf-8");
+  let content = readFileSync(join(SRC, path), "utf-8");
+
+  // Rewrite relative imports to @/ paths that shadcn CLI transforms at install time.
+  // The CLI's transformImport rewrites @/... to match the user's components.json aliases.
+  //
+  // Source:  ../lib/format.js           → @/lib/hip4/format
+  // Source:  ./countdown.js             → @/components/hip4/countdown
+  // Source:  ../hooks/use-hip4-client.js → @/hooks/hip4/use-hip4-client
+  // Source:  ./use-hip4-client.js       → @/hooks/hip4/use-hip4-client
+
+  // lib imports (from components or hooks)
+  content = content.replace(/from ["']\.\.\/lib\/format\.js["']/g, 'from "@/lib/hip4/format"');
+  content = content.replace(/from ["']\.\/format\.js["']/g, 'from "@/lib/hip4/format"');
+
+  // hook-to-hook imports (within hooks/)
+  content = content.replace(/from ["']\.\/(use-[\w-]+)\.js["']/g, 'from "@/hooks/hip4/$1"');
+  content = content.replace(/from ["']\.\/(hip4-provider)\.js["']/g, 'from "@/hooks/hip4/$1"');
+
+  // component-to-hook imports (from components/)
+  content = content.replace(/from ["']\.\.\/hooks\/([\w-]+)\.js["']/g, 'from "@/hooks/hip4/$1"');
+
+  // component-to-component imports
+  content = content.replace(/from ["']\.\/(countdown|market-card|orderbook|trade-form|position-card|probability-bar|market-stats|recent-trades|live-price-chart)\.js["']/g, 'from "@/components/hip4/$1"');
+
+  return content;
 }
 
 interface RegistryFile {
@@ -62,6 +86,8 @@ const useOrderbookContent = readSrc("hooks/use-orderbook.ts");
 const usePortfolioContent = readSrc("hooks/use-portfolio.ts");
 const useTradeContent = readSrc("hooks/use-trade.ts");
 const useMinSharesContent = readSrc("hooks/use-min-shares.ts");
+const useRecentTradesContent = readSrc("hooks/use-recent-trades.ts");
+const hip4ProviderContent = readSrc("hooks/hip4-provider.tsx");
 
 // ----- Helper files -----
 
@@ -81,6 +107,12 @@ const useHip4SignerFile: RegistryFile = {
   path: "hooks/hip4/use-hip4-signer.ts",
   type: "registry:hook",
   content: useHip4SignerContent,
+};
+
+const hip4ProviderFile: RegistryFile = {
+  path: "hooks/hip4/hip4-provider.tsx",
+  type: "registry:hook",
+  content: hip4ProviderContent,
 };
 
 // ----- Registry items -----
@@ -288,6 +320,28 @@ const items: RegistryItem[] = [
   },
   {
     $schema: SCHEMA,
+    name: "hip4-provider",
+    type: "registry:hook",
+    title: "HIP4Provider",
+    description:
+      "Optional React context provider for zero prop-drilling. Wrap your app in <HIP4Provider> and all hooks auto-resolve the client.",
+    author: AUTHOR,
+    dependencies: ["@nktkas/hyperliquid"],
+    registryDependencies: [
+      `${BASE_URL}/use-hip4-client.json`,
+      `${BASE_URL}/hip4-provider.json`,
+    ],
+    files: [
+      hip4ProviderFile,
+      {
+        path: "hooks/hip4/use-hip4-client.ts",
+        type: "registry:hook",
+        content: useHip4ClientContent,
+      },
+    ],
+  },
+  {
+    $schema: SCHEMA,
     name: "use-hip4-signer",
     type: "registry:hook",
     title: "useHIP4Signer",
@@ -306,7 +360,10 @@ const items: RegistryItem[] = [
       "Discovers active HIP-4 markets and subscribes to live mid prices via WebSocket. Returns stable markets array with useMemo to prevent downstream rerenders.",
     author: AUTHOR,
     dependencies: ["@purrdict/hip4"],
-    registryDependencies: [`${BASE_URL}/use-hip4-client.json`],
+    registryDependencies: [
+      `${BASE_URL}/use-hip4-client.json`,
+      `${BASE_URL}/hip4-provider.json`,
+    ],
     files: [
       {
         path: "hooks/hip4/use-markets.ts",
@@ -324,7 +381,10 @@ const items: RegistryItem[] = [
       "Subscribes to the L2 orderbook for a prediction market coin. Returns bids, asks, spread, and mid price with live WebSocket updates.",
     author: AUTHOR,
     dependencies: ["@purrdict/hip4"],
-    registryDependencies: [`${BASE_URL}/use-hip4-client.json`],
+    registryDependencies: [
+      `${BASE_URL}/use-hip4-client.json`,
+      `${BASE_URL}/hip4-provider.json`,
+    ],
     files: [
       {
         path: "hooks/hip4/use-orderbook.ts",
@@ -342,7 +402,10 @@ const items: RegistryItem[] = [
       "Fetches USDH balance, outcome token positions, and open orders for a wallet address. Stable return object with useCallback for refresh.",
     author: AUTHOR,
     dependencies: ["@purrdict/hip4"],
-    registryDependencies: [`${BASE_URL}/use-hip4-client.json`],
+    registryDependencies: [
+      `${BASE_URL}/use-hip4-client.json`,
+      `${BASE_URL}/hip4-provider.json`,
+    ],
     files: [
       {
         path: "hooks/hip4/use-portfolio.ts",
@@ -382,12 +445,36 @@ const items: RegistryItem[] = [
       "Computes the minimum order size for a prediction market coin based on mark price from spotMetaAndAssetCtxs.",
     author: AUTHOR,
     dependencies: ["@purrdict/hip4"],
-    registryDependencies: [`${BASE_URL}/use-hip4-client.json`],
+    registryDependencies: [
+      `${BASE_URL}/use-hip4-client.json`,
+      `${BASE_URL}/hip4-provider.json`,
+    ],
     files: [
       {
         path: "hooks/hip4/use-min-shares.ts",
         type: "registry:hook",
         content: useMinSharesContent,
+      },
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "use-recent-trades",
+    type: "registry:hook",
+    title: "useRecentTrades",
+    description:
+      "Subscribes to recent trades for a prediction market coin. Returns live trade feed via WebSocket with initial history fetch.",
+    author: AUTHOR,
+    dependencies: ["@nktkas/hyperliquid"],
+    registryDependencies: [
+      `${BASE_URL}/use-hip4-client.json`,
+      `${BASE_URL}/hip4-provider.json`,
+    ],
+    files: [
+      {
+        path: "hooks/hip4/use-recent-trades.ts",
+        type: "registry:hook",
+        content: useRecentTradesContent,
       },
     ],
   },
