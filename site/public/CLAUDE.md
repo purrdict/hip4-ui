@@ -94,11 +94,18 @@ These inherit from shadcn's standard variable system. If you already use shadcn/
 
 2. **wagmi chain config doesn't matter** -- Hyperliquid accepts any chainId for signing. Don't waste time matching chain IDs.
 
-3. **useTrade needs ExchangeClient** -- The hook takes `ExchangeClient | null` from `@nktkas/hyperliquid`, NOT the HIP4Client. Create it separately:
+3. **useTrade needs ExchangeClient with agent key (NOT raw walletClient)** -- The hook takes `ExchangeClient | null` from `@nktkas/hyperliquid`. Use an **agent key** (locally generated private key approved by the user's wallet) for trading, NOT the raw walletClient from wagmi. Browser wallets (MetaMask, WalletConnect) can fail with EIP-712 domain chainId mismatches. The agent key signs locally with zero popups:
    ```ts
-   const exchange = new ExchangeClient({ transport: httpTransport, wallet: walletClient });
+   // Recommended: agent key signing (local, no popups, no chain issues)
+   import { privateKeyToAccount } from "viem/accounts";
+   const agentAccount = privateKeyToAccount(agentPrivateKey);
+   const exchange = new ExchangeClient({ transport: httpTransport, wallet: agentAccount });
    const { buy, sell } = useTrade(exchange);
+
+   // NOT recommended: raw walletClient (browser wallet quirks)
+   // const exchange = new ExchangeClient({ transport, wallet: walletClient });
    ```
+   The `useHIP4Signer` hook returns a wagmi walletClient — use it ONLY for the one-time agent key approval, not for ongoing order signing.
 
 4. **Builder address must be lowercased** -- In order actions, `builder.b` MUST be `.toLowerCase()`. The SDK handles this, but if constructing manually, lowercase it.
 
@@ -115,7 +122,7 @@ These inherit from shadcn's standard variable system. If you already use shadcn/
    <LivePriceChart symbol="BTC" prices={prices} currentPrice={currentPrice} targetPrice={market.targetPrice} />
    ```
 
-## Registry Items (21 total)
+## Registry Items (23 total)
 
 ### Lib (1)
 
@@ -123,12 +130,13 @@ These inherit from shadcn's standard variable system. If you already use shadcn/
 |------|---------|-------------|
 | `hip4-format` | `npx shadcn@latest add https://ui.purrdict.xyz/r/hip4-format.json` | `formatMidPrice()`, `formatUsdh()`, `formatTargetPrice()`, `formatPeriod()`, `parseMid()` |
 
-### Components (9)
+### Components (10)
 
 | Name | Install | Fed by | Key Props |
 |------|---------|--------|-----------|
 | `market-card` | `npx shadcn@latest add https://ui.purrdict.xyz/r/market-card.json` | `useMarkets` (markets + mids) | `market`, `yesMid`, `volume?`, `variant?` ("event"\|"recurring"\|"named-binary"\|"question") |
 | `live-price-chart` | `npx shadcn@latest add https://ui.purrdict.xyz/r/live-price-chart.json` | `useUnderlyingPrice` | `symbol`, `prices: PricePoint[]`, `currentPrice`, `targetPrice?`, `height?` |
+| `probability-chart` | `npx shadcn@latest add https://ui.purrdict.xyz/r/probability-chart.json` | `useProbabilityHistory` | `series: OutcomeSeries[]`, `height?`, `theme?`. **Multi-outcome only (3+ outcomes). Binary markets use ProbabilityBar.** |
 | `orderbook` | `npx shadcn@latest add https://ui.purrdict.xyz/r/orderbook.json` | `useOrderbook` | `coin`, `bids`, `asks`, `depth?`, `onPriceClick?` |
 | `recent-trades` | `npx shadcn@latest add https://ui.purrdict.xyz/r/recent-trades.json` | `useRecentTrades` | `trades: Trade[]` (side, price, size, time) |
 | `trade-form` | `npx shadcn@latest add https://ui.purrdict.xyz/r/trade-form.json` | `useOrderbook` for bookData, `useTrade` for submission | `sides`, `bookData?`, `minShares?`, `usdhBalance?`, `isConnected?`, `onSubmit` |
@@ -137,7 +145,7 @@ These inherit from shadcn's standard variable system. If you already use shadcn/
 | `countdown` | `npx shadcn@latest add https://ui.purrdict.xyz/r/countdown.json` | Pure presentation | `expiry: Date`, `variant?` ("segments"\|"text") |
 | `position-card` | `npx shadcn@latest add https://ui.purrdict.xyz/r/position-card.json` | `usePortfolio` | `coin`, `shares`, `currentPrice`, `avgEntry?`, `onSell?` |
 
-### Hooks (10)
+### Hooks (11)
 
 | Name | Install | Purpose |
 |------|---------|---------|
@@ -151,6 +159,7 @@ These inherit from shadcn's standard variable system. If you already use shadcn/
 | `use-min-shares` | `npx shadcn@latest add https://ui.purrdict.xyz/r/use-min-shares.json` | Computes min order size from mark price. Returns `{ minShares, markPx }`. |
 | `use-recent-trades` | `npx shadcn@latest add https://ui.purrdict.xyz/r/use-recent-trades.json` | Live trade feed via WS + initial history. Returns `{ trades: RecentTrade[] }`. |
 | `use-underlying-price` | `npx shadcn@latest add https://ui.purrdict.xyz/r/use-underlying-price.json` | Underlying asset perp price for LivePriceChart. Prefetches `candleSnapshot` history, streams live via `allMids`. Returns `{ prices, currentPrice }`. |
+| `use-probability-history` | `npx shadcn@latest add https://ui.purrdict.xyz/r/use-probability-history.json` | Probability history for all outcomes in a question group. Feeds ProbabilityChart. Returns `{ series: OutcomeSeries[], isLoading, error }`. |
 
 ### Meta (1)
 
@@ -161,19 +170,22 @@ These inherit from shadcn's standard variable system. If you already use shadcn/
 ## Component -> Hook Wiring
 
 ```
-MarketCard        -> useMarkets       (markets array + mids map for yesMid)
-LivePriceChart    -> useUnderlyingPrice  (prefetches candleSnapshot history + live allMids WS)
-Orderbook         -> useOrderbook     (coin, bids, asks)
-TradeForm         -> useOrderbook     (pass { bids, asks } as bookData prop)
-                  -> useTrade         (wire onSubmit to buy()/sell())
-                  -> useMinShares     (pass minShares prop)
-                  -> usePortfolio     (pass usdhBalance, shareBalance)
-RecentTrades      -> useRecentTrades  (trades array)
-PositionCard      -> usePortfolio     (positions array + currentPrice from mids)
-ProbabilityBar    -> pure             (pass yesPx/noPx directly)
-MarketStats       -> pure             (pass volume/trades/traders directly)
-Countdown         -> pure             (pass expiry Date)
+MarketCard        -> useMarkets             (markets array + mids map for yesMid)
+LivePriceChart    -> useUnderlyingPrice     (prefetches candleSnapshot history + live allMids WS)
+ProbabilityChart  -> useProbabilityHistory  (multi-outcome: fetches candles + streams allMids per yesCoin)
+Orderbook         -> useOrderbook           (coin, bids, asks)
+TradeForm         -> useOrderbook           (pass { bids, asks } as bookData prop)
+                  -> useTrade               (wire onSubmit to buy()/sell())
+                  -> useMinShares           (pass minShares prop)
+                  -> usePortfolio           (pass usdhBalance, shareBalance)
+RecentTrades      -> useRecentTrades        (trades array)
+PositionCard      -> usePortfolio           (positions array + currentPrice from mids)
+ProbabilityBar    -> pure                   (pass yesPx/noPx directly — binary markets only)
+MarketStats       -> pure                   (pass volume/trades/traders directly)
+Countdown         -> pure                   (pass expiry Date)
 ```
+
+> **Multi-outcome vs Binary:** `ProbabilityChart` + `useProbabilityHistory` are for question markets with 3+ outcomes. For binary Yes/No markets, use `ProbabilityBar` (pure) + `LivePriceChart` (underlying price).
 
 ## Data Flow Architecture
 
@@ -312,7 +324,8 @@ src/
     market-stats.tsx        # Volume/trades/traders stats row
     orderbook.tsx           # Dual-pane L2 orderbook
     position-card.tsx       # Position with PnL
-    probability-bar.tsx     # Two-tone probability visualization
+    probability-bar.tsx     # Two-tone probability visualization (binary markets)
+    probability-chart.tsx   # Multi-line step-function chart (3+ outcome markets)
     recent-trades.tsx       # Scrollable trade feed
     trade-form.tsx          # Full trading form with validation
   hooks/
@@ -325,6 +338,7 @@ src/
     use-min-shares.ts       # Min order size computation
     use-orderbook.ts        # L2 book subscription
     use-portfolio.ts        # Balances + positions + orders
+    use-probability-history.ts  # Probability history for multi-outcome question groups
     use-recent-trades.ts    # Live trade feed
     use-trade.ts            # Order placement
   lib/
