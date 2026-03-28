@@ -43,7 +43,7 @@ function readSrc(path: string): string {
   content = content.replace(/from ["']\.\.\/hooks\/([\w-]+)\.js["']/g, 'from "@/hooks/hip4/$1"');
 
   // component-to-component imports
-  content = content.replace(/from ["']\.\/(countdown|market-card|orderbook|trade-form|position-card|probability-bar|market-stats|recent-trades|live-price-chart)\.js["']/g, 'from "@/components/hip4/$1"');
+  content = content.replace(/from ["']\.\/(countdown|market-card|orderbook|trade-form|position-card|probability-bar|probability-chart|market-stats|recent-trades|live-price-chart)\.js["']/g, 'from "@/components/hip4/$1"');
 
   return content;
 }
@@ -80,6 +80,7 @@ const probabilityBarContent = readSrc("components/probability-bar.tsx");
 const marketStatsContent = readSrc("components/market-stats.tsx");
 const recentTradesContent = readSrc("components/recent-trades.tsx");
 const livePriceChartContent = readSrc("components/live-price-chart.tsx");
+const probabilityChartContent = readSrc("components/probability-chart.tsx");
 const useHip4ClientContent = readSrc("hooks/use-hip4-client.ts");
 const useHip4SignerContent = readSrc("hooks/use-hip4-signer.ts");
 const useMarketsContent = readSrc("hooks/use-markets.ts");
@@ -89,6 +90,7 @@ const useTradeContent = readSrc("hooks/use-trade.ts");
 const useMinSharesContent = readSrc("hooks/use-min-shares.ts");
 const useRecentTradesContent = readSrc("hooks/use-recent-trades.ts");
 const useUnderlyingPriceContent = readSrc("hooks/use-underlying-price.ts");
+const useProbabilityHistoryContent = readSrc("hooks/use-probability-history.ts");
 const hip4ProviderContent = readSrc("hooks/hip4-provider.tsx");
 
 // ----- Helper files -----
@@ -126,6 +128,13 @@ const useUnderlyingPriceFile: RegistryFile = {
   type: "registry:hook",
   target: "hooks/hip4/use-underlying-price.ts",
   content: useUnderlyingPriceContent,
+};
+
+const useProbabilityHistoryFile: RegistryFile = {
+  path: "hooks/hip4/use-probability-history.ts",
+  type: "registry:hook",
+  target: "hooks/hip4/use-probability-history.ts",
+  content: useProbabilityHistoryContent,
 };
 
 // ----- Quickstart example content -----
@@ -335,6 +344,29 @@ const items: RegistryItem[] = [
         type: "registry:ui",
         target: "components/hip4/live-price-chart.tsx",
         content: livePriceChartContent,
+      },
+      formatFile,
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "probability-chart",
+    type: "registry:ui",
+    title: "Probability Chart",
+    description:
+      "Polymarket-style multi-line step-function probability chart for multi-outcome question markets (3+ outcomes). NOT for binary markets — use ProbabilityBar instead. Feed with useProbabilityHistory(questionMarkets) which returns { series }. Key props: series (OutcomeSeries[]), height? (default 220), theme? ('dark'|'light'). Each outcome auto-assigned a color from OUTCOME_COLORS palette, overridable per series.",
+    author: AUTHOR,
+    dependencies: [],
+    registryDependencies: [
+      `${BASE_URL}/hip4-format.json`,
+      `${BASE_URL}/use-probability-history.json`,
+    ],
+    files: [
+      {
+        path: "components/hip4/probability-chart.tsx",
+        type: "registry:ui",
+        target: "components/hip4/probability-chart.tsx",
+        content: probabilityChartContent,
       },
       formatFile,
     ],
@@ -676,6 +708,25 @@ const items: RegistryItem[] = [
     ],
   },
 
+  {
+    $schema: SCHEMA,
+    name: "use-probability-history",
+    type: "registry:hook",
+    title: "useProbabilityHistory",
+    description:
+      "Subscribes to probability history for all outcomes in a multi-outcome question market. Fetches candleSnapshot history + streams live allMids updates. Returns { series: OutcomeSeries[], isLoading, error }. Pass series directly to <ProbabilityChart series={...} />. Accepts markets array from useMarkets().",
+    author: AUTHOR,
+    dependencies: ["@purrdict/hip4", "@nktkas/hyperliquid"],
+    registryDependencies: [
+      `${BASE_URL}/use-hip4-client.json`,
+      `${BASE_URL}/hip4-provider.json`,
+      `${BASE_URL}/probability-chart.json`,
+    ],
+    files: [
+      useProbabilityHistoryFile,
+    ],
+  },
+
   // Quickstart — installs everything + example
   {
     $schema: SCHEMA,
@@ -704,6 +755,8 @@ const items: RegistryItem[] = [
       `${BASE_URL}/use-min-shares.json`,
       `${BASE_URL}/use-recent-trades.json`,
       `${BASE_URL}/use-underlying-price.json`,
+      `${BASE_URL}/probability-chart.json`,
+      `${BASE_URL}/use-probability-history.json`,
       `${BASE_URL}/use-hip4-signer.json`,
       `${BASE_URL}/hip4-format.json`,
     ],

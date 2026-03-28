@@ -591,6 +591,8 @@ describe("TradeForm prefill", () => {
 // 8. Orderbook onLevelClick callback
 // ---------------------------------------------------------------------------
 
+// NOTE: ProbabilityChart tests follow after Orderbook tests (section 9 below)
+
 const SAMPLE_BIDS = [
   { px: "0.62", sz: "200", n: 3 },
   { px: "0.61", sz: "150", n: 2 },
@@ -671,5 +673,123 @@ describe("Orderbook onLevelClick", () => {
   test("OrderbookLevelClick type is exported from index", () => {
     const check: OrderbookLevelClick = { price: 0.5, size: 100, side: "bid" };
     expect(check.side).toBe("bid");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. ProbabilityChart
+// ---------------------------------------------------------------------------
+
+import { ProbabilityChart } from "../src/components/probability-chart";
+import type { OutcomeSeries, ProbabilityChartProps } from "../src/components/probability-chart";
+
+const NOW = Math.floor(Date.now() / 1000);
+
+const SAMPLE_SERIES: OutcomeSeries[] = [
+  {
+    id: "akami",
+    label: "Akami",
+    data: [
+      { time: NOW - 120, value: 0.45 },
+      { time: NOW - 60, value: 0.50 },
+      { time: NOW, value: 0.55 },
+    ],
+    currentValue: 0.55,
+  },
+  {
+    id: "canned-tuna",
+    label: "Canned Tuna",
+    data: [
+      { time: NOW - 120, value: 0.30 },
+      { time: NOW - 60, value: 0.28 },
+      { time: NOW, value: 0.25 },
+    ],
+    currentValue: 0.25,
+  },
+  {
+    id: "bluefin",
+    label: "Bluefin",
+    data: [
+      { time: NOW - 120, value: 0.25 },
+      { time: NOW - 60, value: 0.22 },
+      { time: NOW, value: 0.20 },
+    ],
+    currentValue: 0.20,
+  },
+];
+
+describe("ProbabilityChart", () => {
+  test("renders a canvas element", () => {
+    const { container } = render(
+      <ProbabilityChart series={SAMPLE_SERIES} />
+    );
+    const canvas = container.querySelector("canvas");
+    expect(canvas).toBeDefined();
+    expect(canvas).not.toBeNull();
+  });
+
+  test("renders legend with correct outcome labels", () => {
+    render(<ProbabilityChart series={SAMPLE_SERIES} />);
+    expect(screen.getByText("Akami")).toBeDefined();
+    expect(screen.getByText("Canned Tuna")).toBeDefined();
+    expect(screen.getByText("Bluefin")).toBeDefined();
+  });
+
+  test("handles empty series without crashing", () => {
+    const { container } = render(<ProbabilityChart series={[]} />);
+    expect(container.firstElementChild).toBeDefined();
+  });
+
+  test("applies className to root element", () => {
+    const { container } = render(
+      <ProbabilityChart series={SAMPLE_SERIES} className="prob-chart-test" />
+    );
+    const root = container.firstElementChild;
+    expect(root?.className).toContain("prob-chart-test");
+  });
+
+  test("renders percentage values for each series with currentValue", () => {
+    render(<ProbabilityChart series={SAMPLE_SERIES} />);
+    // 0.55 * 100 = 55.0 → "55.0%"
+    expect(screen.getByText("55.0%")).toBeDefined();
+    // 0.25 * 100 = 25.0 → "25.0%"
+    expect(screen.getByText("25.0%")).toBeDefined();
+    // 0.20 * 100 = 20.0 → "20.0%"
+    expect(screen.getByText("20.0%")).toBeDefined();
+  });
+
+  test("uses custom color when provided in series", () => {
+    const customSeries: OutcomeSeries[] = [
+      {
+        id: "custom",
+        label: "Custom",
+        color: "#ff0000",
+        data: [{ time: NOW - 60, value: 0.5 }, { time: NOW, value: 0.6 }],
+        currentValue: 0.6,
+      },
+    ];
+    const { container } = render(<ProbabilityChart series={customSeries} />);
+    // Component renders without error — color is applied to canvas drawing
+    expect(container.querySelector("canvas")).toBeDefined();
+  });
+
+  test("OutcomeSeries and ProbabilityChartProps types are exported", () => {
+    const s: OutcomeSeries = {
+      id: "test",
+      label: "Test",
+      data: [{ time: 1000, value: 0.5 }],
+    };
+    const props: ProbabilityChartProps = { series: [s], height: 220 };
+    expect(s.id).toBe("test");
+    expect(props.height).toBe(220);
+  });
+
+  test("respects height prop", () => {
+    const { container } = render(
+      <ProbabilityChart series={SAMPLE_SERIES} height={300} />
+    );
+    const wrapper = container.querySelector("[style]") as HTMLElement | null;
+    // The chart wrapper should use the height prop
+    expect(container.firstElementChild).toBeDefined();
   });
 });

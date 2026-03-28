@@ -35,6 +35,17 @@
       ]
     },
     {
+      "name": "probability-chart",
+      "type": "registry:ui",
+      "title": "Probability Chart",
+      "description": "Polymarket-style multi-line step-function probability chart for multi-outcome question markets (3+ outcomes). NOT for binary markets — use ProbabilityBar instead. Feed with useProbabilityHistory(questionMarkets) which returns { series }. Key props: series (OutcomeSeries[]), height? (default 220), theme? ('dark'|'light'). Each outcome auto-assigned a color from OUTCOME_COLORS palette, overridable per series.",
+      "dependencies": [],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/hip4-format.json",
+        "https://ui.purrdict.xyz/r/use-probability-history.json"
+      ]
+    },
+    {
       "name": "orderbook",
       "type": "registry:ui",
       "title": "Orderbook",
@@ -230,6 +241,21 @@
       ]
     },
     {
+      "name": "use-probability-history",
+      "type": "registry:hook",
+      "title": "useProbabilityHistory",
+      "description": "Subscribes to probability history for all outcomes in a multi-outcome question market. Fetches candleSnapshot history + streams live allMids updates. Returns { series: OutcomeSeries[], isLoading, error }. Pass series directly to <ProbabilityChart series={...} />. Accepts markets array from useMarkets().",
+      "dependencies": [
+        "@purrdict/hip4",
+        "@nktkas/hyperliquid"
+      ],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/use-hip4-client.json",
+        "https://ui.purrdict.xyz/r/hip4-provider.json",
+        "https://ui.purrdict.xyz/r/probability-chart.json"
+      ]
+    },
+    {
       "name": "hip4-quickstart",
       "type": "registry:example",
       "title": "HIP-4 Quickstart",
@@ -256,6 +282,8 @@
         "https://ui.purrdict.xyz/r/use-min-shares.json",
         "https://ui.purrdict.xyz/r/use-recent-trades.json",
         "https://ui.purrdict.xyz/r/use-underlying-price.json",
+        "https://ui.purrdict.xyz/r/probability-chart.json",
+        "https://ui.purrdict.xyz/r/use-probability-history.json",
         "https://ui.purrdict.xyz/r/use-hip4-signer.json",
         "https://ui.purrdict.xyz/r/hip4-format.json"
       ]

@@ -47,6 +47,9 @@ export type { RecentTrade, UseRecentTradesResult } from "./hooks/use-recent-trad
 export { useUnderlyingPrice } from "./hooks/use-underlying-price.js";
 export type { UseUnderlyingPriceOptions, UseUnderlyingPriceResult } from "./hooks/use-underlying-price.js";
 
+export { useProbabilityHistory } from "./hooks/use-probability-history.js";
+export type { UseProbabilityHistoryOptions, UseProbabilityHistoryResult } from "./hooks/use-probability-history.js";
+
 // Components
 export { Countdown, CountdownTimer } from "./components/countdown.js";
 export type { CountdownProps, CountdownTimerProps } from "./components/countdown.js";
@@ -89,6 +92,9 @@ export type { RecentTradesProps, Trade } from "./components/recent-trades.js";
 
 export { LivePriceChart } from "./components/live-price-chart.js";
 export type { LivePriceChartProps, PricePoint } from "./components/live-price-chart.js";
+
+export { ProbabilityChart, OUTCOME_COLORS } from "./components/probability-chart.js";
+export type { ProbabilityChartProps, OutcomeSeries } from "./components/probability-chart.js";
 
 // Formatting utilities
 export {

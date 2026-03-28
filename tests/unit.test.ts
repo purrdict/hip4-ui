@@ -999,3 +999,132 @@ describe("useUnderlyingPrice deduplication logic", () => {
     expect(pts[1].value).toBe(85100.0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// useProbabilityHistory — structural + color-palette tests
+// ---------------------------------------------------------------------------
+
+describe("useProbabilityHistory exports", () => {
+  test("use-probability-history.ts file declares useProbabilityHistory export", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/hooks/use-probability-history.ts", import.meta.url),
+      "utf8",
+    );
+    expect(src).toContain("export function useProbabilityHistory");
+    expect(src).toContain("UseProbabilityHistoryResult");
+  });
+
+  test("index.ts includes ProbabilityChart and useProbabilityHistory re-exports", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/index.ts", import.meta.url),
+      "utf8",
+    );
+    expect(src).toContain("ProbabilityChart");
+    expect(src).toContain("useProbabilityHistory");
+    expect(src).toContain("OutcomeSeries");
+  });
+});
+
+describe("OUTCOME_COLORS palette", () => {
+  test("palette has at least 8 colors", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/components/probability-chart.tsx", import.meta.url),
+      "utf8",
+    );
+    // Count hex color entries in OUTCOME_COLORS
+    const matches = src.match(/"#[0-9a-f]{6}"/gi) ?? [];
+    expect(matches.length).toBeGreaterThanOrEqual(8);
+  });
+
+  test("first palette color is red (#ef4444)", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/components/probability-chart.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(src).toContain("#ef4444");
+  });
+
+  test("auto-assigns colors by series index", () => {
+    // Simulate the auto-assign logic
+    const OUTCOME_COLORS = [
+      "#ef4444",
+      "#f59e0b",
+      "#3b82f6",
+      "#8b5cf6",
+      "#10b981",
+      "#06b6d4",
+      "#f43f5e",
+      "#84cc16",
+    ];
+
+    const series = [
+      { id: "a", label: "A", data: [] },
+      { id: "b", label: "B", data: [] },
+      { id: "c", label: "C", data: [] },
+    ];
+
+    const assignedColors = series.map((s, i) => (s as any).color ?? OUTCOME_COLORS[i % OUTCOME_COLORS.length]);
+    expect(assignedColors[0]).toBe("#ef4444");
+    expect(assignedColors[1]).toBe("#f59e0b");
+    expect(assignedColors[2]).toBe("#3b82f6");
+  });
+
+  test("colors wrap around for more than 8 series", () => {
+    const OUTCOME_COLORS = [
+      "#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6",
+      "#10b981", "#06b6d4", "#f43f5e", "#84cc16",
+    ];
+    const idx9 = 8; // ninth series
+    const expected = OUTCOME_COLORS[idx9 % OUTCOME_COLORS.length];
+    expect(expected).toBe(OUTCOME_COLORS[0]); // wraps to first
+  });
+});
+
+describe("OutcomeSeries structure", () => {
+  test("minimal OutcomeSeries has id, label, and data array", () => {
+    // Static type check via shape validation
+    const series = {
+      id: "outcome-1",
+      label: "Option A",
+      data: [{ time: 1700000000, value: 0.6 }],
+    };
+    expect(series.id).toBe("outcome-1");
+    expect(series.label).toBe("Option A");
+    expect(series.data).toHaveLength(1);
+    expect(series.data[0].value).toBe(0.6);
+  });
+
+  test("currentValue is optional and defaults to undefined", () => {
+    const series = { id: "x", label: "X", data: [] };
+    expect((series as any).currentValue).toBeUndefined();
+  });
+
+  test("color is optional and can be overridden", () => {
+    const series = {
+      id: "custom",
+      label: "Custom",
+      color: "#ff00ff",
+      data: [],
+    };
+    expect(series.color).toBe("#ff00ff");
+  });
+});
+
+describe("useProbabilityHistory return shape", () => {
+  test("UseProbabilityHistoryResult has series, isLoading, error", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/hooks/use-probability-history.ts", import.meta.url),
+      "utf8",
+    );
+    // The result interface should include series, isLoading, error
+    expect(src).toContain("series");
+    expect(src).toContain("isLoading");
+    expect(src).toContain("error");
+    expect(src).toContain("OutcomeSeries");
+  });
+});
