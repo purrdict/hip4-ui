@@ -27,10 +27,11 @@
       "name": "live-price-chart",
       "type": "registry:ui",
       "title": "Live Price Chart",
-      "description": "Canvas-based real-time price chart for prediction markets. Append PricePoint[] from a WebSocket subscription. Key props: symbol (string, e.g. 'BTC'), prices (PricePoint[]), currentPrice (number), targetPrice? (number), height? (number). No hook required — build price array manually from allMids or l2Book subscription.",
+      "description": "Canvas-based real-time chart for the underlying asset's perp price (what the prediction market resolves against). Feed with useUnderlyingPrice(symbol) which returns { prices, currentPrice }. Key props: symbol (string), prices (PricePoint[]), currentPrice (number), targetPrice? (number, the strike price), color? (string, defaults to asset brand color).",
       "dependencies": [],
       "registryDependencies": [
-        "https://ui.purrdict.xyz/r/hip4-format.json"
+        "https://ui.purrdict.xyz/r/hip4-format.json",
+        "https://ui.purrdict.xyz/r/use-underlying-price.json"
       ]
     },
     {
@@ -216,6 +217,19 @@
       ]
     },
     {
+      "name": "use-underlying-price",
+      "type": "registry:hook",
+      "title": "useUnderlyingPrice",
+      "description": "Subscribes to the underlying asset's perp price with candleSnapshot history. Returns { prices, currentPrice } ready for LivePriceChart. Handles history prefetch + live WS updates + deduplication.",
+      "dependencies": [
+        "@nktkas/hyperliquid"
+      ],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/use-hip4-client.json",
+        "https://ui.purrdict.xyz/r/hip4-provider.json"
+      ]
+    },
+    {
       "name": "hip4-quickstart",
       "type": "registry:example",
       "title": "HIP-4 Quickstart",
@@ -241,6 +255,7 @@
         "https://ui.purrdict.xyz/r/use-trade.json",
         "https://ui.purrdict.xyz/r/use-min-shares.json",
         "https://ui.purrdict.xyz/r/use-recent-trades.json",
+        "https://ui.purrdict.xyz/r/use-underlying-price.json",
         "https://ui.purrdict.xyz/r/use-hip4-signer.json",
         "https://ui.purrdict.xyz/r/hip4-format.json"
       ]

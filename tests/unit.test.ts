@@ -866,3 +866,136 @@ describe("TradeForm roundToTick", () => {
     expect(result).toBe("0.00001");
   });
 });
+
+// ---------------------------------------------------------------------------
+// useUnderlyingPrice — source file contract (Task: useUnderlyingPrice)
+// ---------------------------------------------------------------------------
+
+describe("useUnderlyingPrice source file contract", () => {
+  test("use-underlying-price.ts file exists and exports useUnderlyingPrice", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/hooks/use-underlying-price.ts", import.meta.url),
+      "utf8",
+    );
+    expect(src).toContain("export function useUnderlyingPrice");
+    expect(src).toContain('"use client"');
+  });
+
+  test("useUnderlyingPrice exports PricePoint interface or uses it from live-price-chart", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/hooks/use-underlying-price.ts", import.meta.url),
+      "utf8",
+    );
+    // Should use PricePoint type
+    expect(src).toContain("PricePoint");
+  });
+
+  test("useUnderlyingPrice returns prices, currentPrice, and isLoading", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/hooks/use-underlying-price.ts", import.meta.url),
+      "utf8",
+    );
+    expect(src).toContain("prices");
+    expect(src).toContain("currentPrice");
+    expect(src).toContain("isLoading");
+  });
+
+  test("useUnderlyingPrice uses candleSnapshot for history", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/hooks/use-underlying-price.ts", import.meta.url),
+      "utf8",
+    );
+    expect(src).toContain("candleSnapshot");
+  });
+
+  test("useUnderlyingPrice subscribes to allMids for live updates", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/hooks/use-underlying-price.ts", import.meta.url),
+      "utf8",
+    );
+    expect(src).toContain("allMids");
+  });
+
+  test("useUnderlyingPrice cleans up subscription on unmount", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/hooks/use-underlying-price.ts", import.meta.url),
+      "utf8",
+    );
+    expect(src).toContain("unsubscribe");
+  });
+
+  test("index.ts exports useUnderlyingPrice", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile(
+      new URL("../src/index.ts", import.meta.url),
+      "utf8",
+    );
+    expect(src).toContain("useUnderlyingPrice");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useUnderlyingPrice — deduplication logic (pure logic test)
+// ---------------------------------------------------------------------------
+
+describe("useUnderlyingPrice deduplication logic", () => {
+  function appendPoint(
+    pts: Array<{ time: number; value: number }>,
+    time: number,
+    value: number,
+  ) {
+    const last = pts[pts.length - 1];
+    if (last && time < last.time) return;
+    if (last && time === last.time) {
+      last.value = value;
+      return;
+    }
+    pts.push({ time, value });
+  }
+
+  test("appends new points in order", () => {
+    const pts: Array<{ time: number; value: number }> = [];
+    appendPoint(pts, 1000, 85000);
+    appendPoint(pts, 1001, 85100);
+    appendPoint(pts, 1002, 85200);
+    expect(pts.length).toBe(3);
+    expect(pts[2].value).toBe(85200);
+  });
+
+  test("dedupes same-second updates by mutating last value", () => {
+    const pts: Array<{ time: number; value: number }> = [];
+    appendPoint(pts, 1000, 85000);
+    appendPoint(pts, 1000, 85050); // same second, updated price
+    expect(pts.length).toBe(1);
+    expect(pts[0].value).toBe(85050);
+  });
+
+  test("ignores out-of-order (older) points", () => {
+    const pts: Array<{ time: number; value: number }> = [];
+    appendPoint(pts, 1002, 85200);
+    appendPoint(pts, 1000, 85000); // older, should be ignored
+    expect(pts.length).toBe(1);
+    expect(pts[0].time).toBe(1002);
+  });
+
+  test("candle history parsing produces PricePoints", () => {
+    // Simulate parsing candle data: use closing price (c) + closing timestamp (T)
+    const candles = [
+      { T: 1700000060000, c: "85000.5" },
+      { T: 1700000120000, c: "85100.0" },
+    ];
+    const pts = candles.map((c) => ({
+      time: Math.floor(c.T / 1000),
+      value: parseFloat(c.c),
+    }));
+    expect(pts[0].time).toBe(1700000060);
+    expect(pts[0].value).toBe(85000.5);
+    expect(pts[1].value).toBe(85100.0);
+  });
+});

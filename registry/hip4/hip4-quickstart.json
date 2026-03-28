@@ -26,6 +26,7 @@
     "https://ui.purrdict.xyz/r/use-trade.json",
     "https://ui.purrdict.xyz/r/use-min-shares.json",
     "https://ui.purrdict.xyz/r/use-recent-trades.json",
+    "https://ui.purrdict.xyz/r/use-underlying-price.json",
     "https://ui.purrdict.xyz/r/use-hip4-signer.json",
     "https://ui.purrdict.xyz/r/hip4-format.json"
   ],

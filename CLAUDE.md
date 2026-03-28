@@ -108,7 +108,14 @@ These inherit from shadcn's standard variable system. If you already use shadcn/
 
 7. **Minimum order size varies by price** -- Use `useMinShares(coin)` to get the current minimum. Formula: `ceil(10 / max(min(markPx, 1-markPx), 0.01))`. At 50 cents = 20 shares, at 1 cent = 1000 shares.
 
-## Registry Items (20 total)
+8. **LivePriceChart shows underlying perp price, NOT prediction probability** -- The chart displays the BTC/ETH/SOL/HYPE mark price (what the market resolves against), not the prediction coin's mid. The `targetPrice` prop is the market's strike price. Feed it with `useUnderlyingPrice(symbol)` which prefetches history via `candleSnapshot` (1m interval) then streams live updates via the `allMids` WebSocket subscription.
+
+   ```tsx
+   const { prices, currentPrice } = useUnderlyingPrice("BTC", { historyMinutes: 60 });
+   <LivePriceChart symbol="BTC" prices={prices} currentPrice={currentPrice} targetPrice={market.targetPrice} />
+   ```
+
+## Registry Items (21 total)
 
 ### Lib (1)
 
@@ -121,7 +128,7 @@ These inherit from shadcn's standard variable system. If you already use shadcn/
 | Name | Install | Fed by | Key Props |
 |------|---------|--------|-----------|
 | `market-card` | `npx shadcn@latest add https://ui.purrdict.xyz/r/market-card.json` | `useMarkets` (markets + mids) | `market`, `yesMid`, `volume?`, `variant?` ("event"\|"recurring"\|"named-binary"\|"question") |
-| `live-price-chart` | `npx shadcn@latest add https://ui.purrdict.xyz/r/live-price-chart.json` | Manual price array | `symbol`, `prices: PricePoint[]`, `currentPrice`, `targetPrice?`, `height?` |
+| `live-price-chart` | `npx shadcn@latest add https://ui.purrdict.xyz/r/live-price-chart.json` | `useUnderlyingPrice` | `symbol`, `prices: PricePoint[]`, `currentPrice`, `targetPrice?`, `height?` |
 | `orderbook` | `npx shadcn@latest add https://ui.purrdict.xyz/r/orderbook.json` | `useOrderbook` | `coin`, `bids`, `asks`, `depth?`, `onPriceClick?` |
 | `recent-trades` | `npx shadcn@latest add https://ui.purrdict.xyz/r/recent-trades.json` | `useRecentTrades` | `trades: Trade[]` (side, price, size, time) |
 | `trade-form` | `npx shadcn@latest add https://ui.purrdict.xyz/r/trade-form.json` | `useOrderbook` for bookData, `useTrade` for submission | `sides`, `bookData?`, `minShares?`, `usdhBalance?`, `isConnected?`, `onSubmit` |
@@ -130,7 +137,7 @@ These inherit from shadcn's standard variable system. If you already use shadcn/
 | `countdown` | `npx shadcn@latest add https://ui.purrdict.xyz/r/countdown.json` | Pure presentation | `expiry: Date`, `variant?` ("segments"\|"text") |
 | `position-card` | `npx shadcn@latest add https://ui.purrdict.xyz/r/position-card.json` | `usePortfolio` | `coin`, `shares`, `currentPrice`, `avgEntry?`, `onSell?` |
 
-### Hooks (9)
+### Hooks (10)
 
 | Name | Install | Purpose |
 |------|---------|---------|
@@ -143,6 +150,7 @@ These inherit from shadcn's standard variable system. If you already use shadcn/
 | `use-trade` | `npx shadcn@latest add https://ui.purrdict.xyz/r/use-trade.json` | Order placement via `buy()` / `sell()` / `cancel()`. Takes `ExchangeClient` not HIP4Client. |
 | `use-min-shares` | `npx shadcn@latest add https://ui.purrdict.xyz/r/use-min-shares.json` | Computes min order size from mark price. Returns `{ minShares, markPx }`. |
 | `use-recent-trades` | `npx shadcn@latest add https://ui.purrdict.xyz/r/use-recent-trades.json` | Live trade feed via WS + initial history. Returns `{ trades: RecentTrade[] }`. |
+| `use-underlying-price` | `npx shadcn@latest add https://ui.purrdict.xyz/r/use-underlying-price.json` | Underlying asset perp price for LivePriceChart. Prefetches `candleSnapshot` history, streams live via `allMids`. Returns `{ prices, currentPrice }`. |
 
 ### Meta (1)
 
@@ -154,7 +162,7 @@ These inherit from shadcn's standard variable system. If you already use shadcn/
 
 ```
 MarketCard        -> useMarkets       (markets array + mids map for yesMid)
-LivePriceChart    -> manual           (build PricePoint[] from WS subscription)
+LivePriceChart    -> useUnderlyingPrice  (prefetches candleSnapshot history + live allMids WS)
 Orderbook         -> useOrderbook     (coin, bids, asks)
 TradeForm         -> useOrderbook     (pass { bids, asks } as bookData prop)
                   -> useTrade         (wire onSubmit to buy()/sell())

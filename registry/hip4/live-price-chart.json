@@ -3,11 +3,12 @@
   "name": "live-price-chart",
   "type": "registry:ui",
   "title": "Live Price Chart",
-  "description": "Canvas-based real-time price chart for prediction markets. Append PricePoint[] from a WebSocket subscription. Key props: symbol (string, e.g. 'BTC'), prices (PricePoint[]), currentPrice (number), targetPrice? (number), height? (number). No hook required — build price array manually from allMids or l2Book subscription.",
+  "description": "Canvas-based real-time chart for the underlying asset's perp price (what the prediction market resolves against). Feed with useUnderlyingPrice(symbol) which returns { prices, currentPrice }. Key props: symbol (string), prices (PricePoint[]), currentPrice (number), targetPrice? (number, the strike price), color? (string, defaults to asset brand color).",
   "author": "Purrdict <https://purrdict.xyz>",
   "dependencies": [],
   "registryDependencies": [
-    "https://ui.purrdict.xyz/r/hip4-format.json"
+    "https://ui.purrdict.xyz/r/hip4-format.json",
+    "https://ui.purrdict.xyz/r/use-underlying-price.json"
   ],
   "files": [
     {

@@ -88,6 +88,7 @@ const usePortfolioContent = readSrc("hooks/use-portfolio.ts");
 const useTradeContent = readSrc("hooks/use-trade.ts");
 const useMinSharesContent = readSrc("hooks/use-min-shares.ts");
 const useRecentTradesContent = readSrc("hooks/use-recent-trades.ts");
+const useUnderlyingPriceContent = readSrc("hooks/use-underlying-price.ts");
 const hip4ProviderContent = readSrc("hooks/hip4-provider.tsx");
 
 // ----- Helper files -----
@@ -118,6 +119,13 @@ const hip4ProviderFile: RegistryFile = {
   type: "registry:hook",
   target: "hooks/hip4/hip4-provider.tsx",
   content: hip4ProviderContent,
+};
+
+const useUnderlyingPriceFile: RegistryFile = {
+  path: "hooks/hip4/use-underlying-price.ts",
+  type: "registry:hook",
+  target: "hooks/hip4/use-underlying-price.ts",
+  content: useUnderlyingPriceContent,
 };
 
 // ----- Quickstart example content -----
@@ -314,10 +322,13 @@ const items: RegistryItem[] = [
     type: "registry:ui",
     title: "Live Price Chart",
     description:
-      "Canvas-based real-time price chart for prediction markets. Append PricePoint[] from a WebSocket subscription. Key props: symbol (string, e.g. 'BTC'), prices (PricePoint[]), currentPrice (number), targetPrice? (number), height? (number). No hook required — build price array manually from allMids or l2Book subscription.",
+      "Canvas-based real-time chart for the underlying asset's perp price (what the prediction market resolves against). Feed with useUnderlyingPrice(symbol) which returns { prices, currentPrice }. Key props: symbol (string), prices (PricePoint[]), currentPrice (number), targetPrice? (number, the strike price), color? (string, defaults to asset brand color).",
     author: AUTHOR,
     dependencies: [],
-    registryDependencies: [`${BASE_URL}/hip4-format.json`],
+    registryDependencies: [
+      `${BASE_URL}/hip4-format.json`,
+      `${BASE_URL}/use-underlying-price.json`,
+    ],
     files: [
       {
         path: "components/hip4/live-price-chart.tsx",
@@ -647,6 +658,23 @@ const items: RegistryItem[] = [
       },
     ],
   },
+  {
+    $schema: SCHEMA,
+    name: "use-underlying-price",
+    type: "registry:hook",
+    title: "useUnderlyingPrice",
+    description:
+      "Subscribes to the underlying asset's perp price with candleSnapshot history. Returns { prices, currentPrice } ready for LivePriceChart. Handles history prefetch + live WS updates + deduplication.",
+    author: AUTHOR,
+    dependencies: ["@nktkas/hyperliquid"],
+    registryDependencies: [
+      `${BASE_URL}/use-hip4-client.json`,
+      `${BASE_URL}/hip4-provider.json`,
+    ],
+    files: [
+      useUnderlyingPriceFile,
+    ],
+  },
 
   // Quickstart — installs everything + example
   {
@@ -675,6 +703,7 @@ const items: RegistryItem[] = [
       `${BASE_URL}/use-trade.json`,
       `${BASE_URL}/use-min-shares.json`,
       `${BASE_URL}/use-recent-trades.json`,
+      `${BASE_URL}/use-underlying-price.json`,
       `${BASE_URL}/use-hip4-signer.json`,
       `${BASE_URL}/hip4-format.json`,
     ],
