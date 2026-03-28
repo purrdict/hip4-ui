@@ -807,7 +807,7 @@ const registrySetup = `// components.json — add the hip4 registry
   </footer>
 
   <!-- Mobile sticky bottom nav — horizontally scrollable -->
-  <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur-lg safe-area-pb">
+  <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t safe-area-pb" style="background: hsl(var(--background))">
     <div class="flex overflow-x-auto scrollbar-none gap-1 px-2 py-2 text-[11px]">
       <a href="#components" class="shrink-0 rounded-md px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium">Components</a>
       {components.map((c: any) => (
