@@ -1,0 +1,696 @@
+---
+import Base from "../layouts/Base.astro";
+import ThemeToggle from "../components/ThemeToggle.astro";
+import InstallBlock from "../components/InstallBlock.astro";
+import { Code } from "astro:components";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+// Single React island that handles dynamic preview dispatch
+// (Astro requires static imports for client:* directives — dynamic dispatch happens inside React)
+import PreviewSwitcher from "../components/previews/PreviewSwitcher";
+
+// Load registry manifest
+const registry = JSON.parse(readFileSync(join(process.cwd(), "public/r/index.json"), "utf-8"));
+const components = registry.items.filter((i: any) => i.type === "registry:ui");
+const hooks = registry.items.filter((i: any) => i.type === "registry:hook");
+const libs = registry.items.filter((i: any) => i.type === "registry:lib");
+
+// Components that have interactive previews
+const previewNames = new Set(["market-card", "live-price-chart", "orderbook", "trade-form", "countdown", "position-card", "probability-bar", "market-stats", "recent-trades"]);
+
+// Component metadata
+const componentMeta: Record<string, { props: { name: string; type: string; desc: string }[]; usage: string }> = {
+  "market-card": {
+    props: [
+      { name: "variant", type: "MarketVariant", desc: '"event" | "recurring" | "named-binary" | "question". Default: "event"' },
+      { name: "market", type: "Market", desc: "Market object — required for event/recurring variants" },
+      { name: "yesMid", type: "number | string", desc: "Yes mid price (0-1)" },
+      { name: "noMid", type: "number | string", desc: "No mid price. Defaults to 1 - yesMid" },
+      { name: "volume", type: "number", desc: "24h volume in USDH" },
+      { name: "underlying", type: "string", desc: 'Asset symbol for recurring variant (e.g. "BTC")' },
+      { name: "title", type: "string", desc: "Card title for named-binary variant" },
+      { name: "sides", type: "NamedSide[]", desc: "Named sides for named-binary variant ({name, avatarUrl?})" },
+      { name: "questionName", type: "string", desc: "Question title for question variant" },
+      { name: "outcomes", type: "Outcome[]", desc: "Outcomes for question variant ({name, yesPx})" },
+      { name: "onClick", type: "() => void", desc: "Click handler" },
+    ],
+    usage: `import { MarketCard } from "@/components/hip4/market-card"
+import { useMarkets } from "@/hooks/hip4/use-markets"
+
+function MarketList() {
+  // Variant auto-detected from market.description
+  // Prices auto-resolved from mids map
+  const { markets, mids } = useMarkets()
+
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      {markets.map((m) => (
+        <MarketCard
+          key={m.yesCoin}
+          market={m}
+          mids={mids}
+          onSideClick={(side) =>
+            router.push(\`/market/\${m.yesCoin}?side=\${side}\`)
+          }
+        />
+      ))}
+    </div>
+  )
+}`,
+  },
+  "live-price-chart": {
+    props: [
+      { name: "symbol", type: "string", desc: "Underlying asset symbol (BTC, ETH, SOL, HYPE)" },
+      { name: "prices", type: "PricePoint[]", desc: "Array of {time, value} price history" },
+      { name: "currentPrice", type: "number", desc: "Latest live price for the dot indicator" },
+      { name: "targetPrice", type: "number", desc: "Reference target price dashed line" },
+      { name: "color", type: "string", desc: "Line color override. Defaults to asset brand (BTC #f7931a, ETH #627eea, SOL #9945ff, HYPE #50e3c2)" },
+      { name: "height", type: "number", desc: "Chart height in px. Default: 200" },
+      { name: "theme", type: '"light" | "dark"', desc: 'Color scheme. Default: "dark"' },
+    ],
+    usage: `import { LivePriceChart } from "@/components/hip4/live-price-chart"
+import { useMarkets } from "@/hooks/hip4/use-markets"
+
+function PriceChart({ symbol, targetPrice }: {
+  symbol: string
+  targetPrice: number
+}) {
+  // Hook auto-populates prices via WebSocket
+  const { mids } = useMarkets()
+  const [prices, setPrices] = useState<PricePoint[]>([])
+
+  // Append new price points on every mid update
+  useEffect(() => {
+    const coin = \`#\${symbol}\`
+    const mid = mids[coin]
+    if (mid) {
+      setPrices((prev) => [
+        ...prev.slice(-3600),
+        { time: Math.floor(Date.now() / 1000), value: mid },
+      ])
+    }
+  }, [mids, symbol])
+
+  return (
+    <LivePriceChart
+      symbol={symbol}
+      prices={prices}
+      targetPrice={targetPrice}
+      height={200}
+    />
+  )
+}`,
+  },
+  "orderbook": {
+    props: [
+      { name: "coin", type: "string", desc: "Coin identifier for the outcome" },
+      { name: "bids", type: "BookLevel[]", desc: "Bid levels sorted by price desc" },
+      { name: "asks", type: "BookLevel[]", desc: "Ask levels sorted by price asc" },
+      { name: "depth", type: "number", desc: "Levels to display. Default: 10" },
+      { name: "onPriceClick", type: "(price: number) => void", desc: "Click handler for price level" },
+    ],
+    usage: `import { Orderbook } from "@/components/hip4/orderbook"
+import { useOrderbook } from "@/hooks/hip4/use-orderbook"
+
+function MarketOrderbook({ coin }: { coin: string }) {
+  const { bids, asks } = useOrderbook(undefined, coin)
+
+  return (
+    <Orderbook
+      coin={coin}
+      bids={bids}
+      asks={asks}
+      depth={10}
+      onPriceClick={(px) => setLimitPrice(px)}
+    />
+  )
+}`,
+  },
+  "trade-form": {
+    props: [
+      { name: "market", type: "Market", desc: "Market object" },
+      { name: "side", type: "TradeSide", desc: '"Yes" | "No" — active trade side' },
+      { name: "onSideChange", type: "(side: TradeSide) => void", desc: "Called when user switches side" },
+      { name: "currentPrice", type: "number", desc: "Current mid price for selected side (0-1)" },
+      { name: "minShares", type: "number", desc: "Minimum order size" },
+      { name: "builder", type: "BuilderConfig", desc: "Builder fee config: { address: string, fee: number }" },
+      { name: "usdhBalance", type: "number", desc: "User's free USDH balance for validation" },
+      { name: "isConnected", type: "boolean", desc: "Whether the wallet is connected/signed in" },
+      { name: "onTrade", type: "(params: TradeParams) => Promise<void>", desc: "Trade execution callback" },
+    ],
+    usage: `import { TradeForm } from "@/components/hip4/trade-form"
+import { useOrderbook } from "@/hooks/hip4/use-orderbook"
+import { usePortfolio } from "@/hooks/hip4/use-portfolio"
+import { useMinShares } from "@/hooks/hip4/use-min-shares"
+
+function TradingPanel({ market }: { market: Market }) {
+  // Hooks auto-resolve client from HIP4Provider
+  const book = useOrderbook(undefined, market.sides[0].coin)
+  const { balance } = usePortfolio(undefined, address)
+  const { minShares } = useMinShares(undefined, market.sides[0].coin)
+
+  return (
+    <TradeForm
+      sides={market.sides}
+      bookData={book}
+      minShares={minShares}
+      usdhBalance={balance}
+      isConnected={!!signer}
+      onSubmit={async (params) => {
+        await placeOrder(params)
+      }}
+    />
+  )
+}`,
+  },
+  "countdown": {
+    props: [
+      { name: "expiry", type: "Date", desc: "UTC expiry date" },
+    ],
+    usage: `// Segmented countdown (DAYS / HRS / MINS / SECS with urgency colors)
+import { Countdown } from "@/components/hip4/countdown"
+
+<Countdown expiry={market.expiry} />
+
+// Simple text countdown (legacy — "2h 15m 30s")
+import { CountdownTimer } from "@/components/hip4/countdown"
+
+<CountdownTimer
+  expiry={market.expiry}
+  onExpire={() => refetchMarket()}
+/>`,
+  },
+  "position-card": {
+    props: [
+      { name: "coin", type: "string", desc: "Coin identifier for the position" },
+      { name: "shares", type: "number", desc: "Number of shares held" },
+      { name: "avgEntry", type: "number", desc: "Average entry price. Optional — hides if unknown" },
+      { name: "currentPrice", type: "number", desc: "Current mid/mark price" },
+      { name: "onSell", type: "(coin: string) => void", desc: "Sell button click handler" },
+    ],
+    usage: `import { PositionCard } from "@/components/hip4/position-card"
+
+<PositionCard
+  coin={market.yesCoin}
+  shares={100}
+  avgEntry={0.45}
+  currentPrice={0.65}
+  onSell={(coin) => openSellDialog(coin)}
+/>`,
+  },
+  "probability-bar": {
+    props: [
+      { name: "yesPx", type: "number", desc: "Yes probability (0-1)" },
+      { name: "noPx", type: "number", desc: "No probability (0-1)" },
+      { name: "yesLabel", type: "string", desc: 'Yes side label. Default: "Yes"' },
+      { name: "noLabel", type: "string", desc: 'No side label. Default: "No"' },
+    ],
+    usage: `import { ProbabilityBar } from "@/components/hip4/probability-bar"
+
+{/* Default Yes/No */}
+<ProbabilityBar yesPx={0.72} noPx={0.28} />
+
+{/* Recurring markets — Up/Down */}
+<ProbabilityBar
+  yesPx={0.58}
+  noPx={0.42}
+  yesLabel="Up"
+  noLabel="Down"
+/>`,
+  },
+  "market-stats": {
+    props: [
+      { name: "volume", type: "number", desc: "24h volume in USDH" },
+      { name: "trades", type: "number", desc: "Total trade count" },
+      { name: "traders", type: "number", desc: "Unique trader count" },
+    ],
+    usage: `import { MarketStats } from "@/components/hip4/market-stats"
+
+<MarketStats volume={42500} trades={186} traders={24} />`,
+  },
+  "recent-trades": {
+    props: [
+      { name: "trades", type: "Trade[]", desc: "Array of { side, label, price, size, time }" },
+      { name: "maxRows", type: "number", desc: "Max visible rows. Default: 20" },
+    ],
+    usage: `import { RecentTrades } from "@/components/hip4/recent-trades"
+import type { Trade } from "@/components/hip4/recent-trades"
+
+<RecentTrades
+  trades={recentTrades}
+  maxRows={15}
+/>`,
+  },
+};
+
+// Hook metadata
+const hookMeta: Record<string, { signature: string; returns: string; usage: string }> = {
+  "use-hip4-client": {
+    signature: "useHIP4Client(opts?: { testnet?: boolean })",
+    returns: "HIP4Client",
+    usage: `const client = useHIP4Client({ testnet: true })
+
+// Or use HIP4Provider for zero prop-drilling:
+// <HIP4Provider testnet={true}><App /></HIP4Provider>
+// Then all hooks read from context automatically.`,
+  },
+  "use-hip4-signer": {
+    signature: "useHIP4Signer()",
+    returns: "HIP4Signer | null",
+    usage: `const signer = useHIP4Signer()
+// null when wallet disconnected`,
+  },
+  "use-markets": {
+    signature: "useMarkets(client?: HIP4Client)",
+    returns: "{ markets, mids, isLoading, error }",
+    usage: `// Explicit client
+const { markets, mids } = useMarkets(client)
+
+// Or with HIP4Provider (no client needed)
+const { markets, mids } = useMarkets()`,
+  },
+  "use-orderbook": {
+    signature: "useOrderbook(client?: HIP4Client, coin: string)",
+    returns: "{ bids, asks, spread, midPrice }",
+    usage: `// Explicit client
+const { bids, asks } = useOrderbook(client, market.yesCoin)
+
+// Or with HIP4Provider
+const { bids, asks } = useOrderbook(undefined, market.yesCoin)`,
+  },
+  "use-portfolio": {
+    signature: "usePortfolio(client?: HIP4Client, address: string)",
+    returns: "{ balance, positions, orders, refresh }",
+    usage: `const { balance, positions } = usePortfolio(
+  client,
+  address
+)`,
+  },
+  "use-trade": {
+    signature: "useTrade(client?: HIP4Client, signer: HIP4Signer)",
+    returns: "{ buy, sell, cancel, isSubmitting, error }",
+    usage: `const { buy, sell, cancel } = useTrade(client, signer)
+
+await buy({
+  coin: market.yesCoin,
+  shares: 20,
+  price: 0.55,
+})`,
+  },
+  "use-min-shares": {
+    signature: "useMinShares(client?: HIP4Client, coin: string)",
+    returns: "{ minShares, markPrice, isLoading }",
+    usage: `const { minShares } = useMinShares(
+  client,
+  market.yesCoin
+)`,
+  },
+};
+
+const quickStartCode = `import { MarketCard } from "@/components/hip4/market-card"
+import { useMarkets, useMarket } from "@purrdict/hip4-ui"
+
+function MarketList() {
+  const { markets } = useMarkets()
+
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      {markets.map((m) => (
+        <MarketRow key={m.yesCoin} market={m} />
+      ))}
+    </div>
+  )
+}
+
+// Each row only rerenders when ITS market price changes
+function MarketRow({ market }: { market: Market }) {
+  const { yesMid } = useMarket(market)
+
+  return (
+    <MarketCard
+      market={market}
+      yesMid={yesMid}
+      onSideClick={(side) =>
+        router.push(\`/market/\${market.yesCoin}?side=\${side}\`)
+      }
+    />
+  )
+}`;
+
+const quickStartProviderCode = `// Wrap once in layout — all hooks auto-resolve the client
+import { HIP4Provider } from "@purrdict/hip4-ui"
+
+export default function Layout({ children }) {
+  return (
+    <HIP4Provider testnet={true}>
+      {children}
+    </HIP4Provider>
+  )
+}
+
+// In any component — no client, no prop drilling:
+import { useMarket } from "@purrdict/hip4-ui"
+
+function MarketDetail({ market }: { market: Market }) {
+  // Only rerenders for THIS market
+  const { yesMid, noMid, minShares } = useMarket(market)
+  // ...
+}`;
+
+const registrySetup = `// components.json — add the hip4 registry
+{
+  "registries": {
+    "hip4": {
+      "url": "https://ui.purrdict.xyz/r"
+    }
+  }
+}
+
+// Then install components by name:
+// npx shadcn@latest add hip4:market-card`;
+---
+
+<Base title="HIP-4 UI — Prediction Market Components for React">
+  <!-- Nav -->
+  <nav class="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-lg">
+    <div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
+      <a href="/" class="flex items-center gap-2.5 text-sm">
+        <span class="font-display font-medium text-foreground">HIP-4 UI</span>
+        <span class="text-border">/</span>
+        <span class="text-muted-foreground">purrdict</span>
+      </a>
+      <div class="flex items-center gap-5">
+        <a href="#components" class="hidden text-sm text-muted-foreground hover:text-foreground transition-colors sm:block">Components</a>
+        <a href="#hooks" class="hidden text-sm text-muted-foreground hover:text-foreground transition-colors sm:block">Hooks</a>
+        <a href="https://github.com/purrdict/hip4-ui" class="text-sm text-muted-foreground hover:text-foreground transition-colors" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://x.com/hypurrdict" class="text-sm text-muted-foreground hover:text-foreground transition-colors" target="_blank" rel="noopener">@hypurrdict</a>
+        <ThemeToggle />
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="border-b">
+    <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6 sm:py-24">
+      <p class="font-mono text-xs uppercase tracking-widest text-primary mb-6">Open source / MIT licensed</p>
+      <h1 class="font-display text-4xl font-normal tracking-tight sm:text-5xl lg:text-6xl mb-4">
+        Prediction market<br />components for React.
+      </h1>
+      <p class="max-w-xl text-lg text-muted-foreground mb-8">
+        Drop-in shadcn components and hooks for building on Hyperliquid HIP-4.
+        Wallet agnostic. Builder fee ready. Install individually.
+      </p>
+
+      <!-- Install command -->
+      <div class="max-w-xl mb-6">
+        <p class="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">Install a component</p>
+        <div class="flex items-center gap-2 rounded-lg border bg-card px-4 py-3 font-mono text-sm">
+          <span class="text-muted-foreground select-none">$</span>
+          <code id="hero-cmd" class="flex-1 truncate text-foreground">npx shadcn@latest add https://ui.purrdict.xyz/r/market-card.json</code>
+          <button
+            class="copy-btn shrink-0 rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
+            data-copy="npx shadcn@latest add https://ui.purrdict.xyz/r/market-card.json"
+            aria-label="Copy"
+          >
+            <svg class="copy-icon h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+            </svg>
+            <svg class="check-icon h-4 w-4 hidden text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="flex items-center gap-3 text-sm text-muted-foreground">
+        <span>{components.length} components</span>
+        <span class="h-1 w-1 rounded-full bg-border"></span>
+        <span>{hooks.length} hooks</span>
+        <span class="h-1 w-1 rounded-full bg-border"></span>
+        <span>wagmi + shadcn/ui</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Components -->
+  <section id="components" class="border-b">
+    <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
+      <div class="mb-10">
+        <h2 class="font-display text-2xl font-medium tracking-tight mb-2">Components</h2>
+        <p class="text-muted-foreground">UI primitives for prediction market interfaces. Each installs independently with its dependencies.</p>
+      </div>
+
+      <div class="space-y-8">
+        {components.map((c: any) => {
+          const meta = componentMeta[c.name];
+          return (
+            <article id={c.name} class="rounded-xl border bg-card overflow-hidden">
+              <!-- Header -->
+              <div class="flex items-start justify-between gap-4 px-6 py-5 border-b">
+                <div>
+                  <div class="flex items-center gap-2.5 mb-1.5">
+                    <h3 class="font-display font-medium text-lg">{c.title || c.name}</h3>
+                    <span class="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">component</span>
+                  </div>
+                  <p class="text-sm text-muted-foreground">{c.description}</p>
+                </div>
+              </div>
+
+              {meta && (
+                <div>
+                  <!-- Preview -->
+                  {previewNames.has(c.name) && (
+                    <div class="border-b bg-muted/30 p-6 sm:p-8 flex items-center justify-center min-h-[200px]">
+                      <PreviewSwitcher client:load name={c.name} />
+                    </div>
+                  )}
+
+                  <!-- Usage code -->
+                  <div class="border-b px-6 py-5">
+                    <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Usage</p>
+                    <div class="rounded-lg overflow-hidden text-sm">
+                      <Code code={meta.usage} lang="tsx" theme="github-dark" />
+                    </div>
+                  </div>
+
+                  <!-- Props table -->
+                  <div class="border-b px-6 py-5">
+                    <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Props</p>
+                    <div class="overflow-x-auto -mx-6 px-6">
+                      <table class="w-full text-sm">
+                        <thead>
+                          <tr class="border-b">
+                            <th class="text-left py-2 pr-4 font-medium text-muted-foreground">Prop</th>
+                            <th class="text-left py-2 pr-4 font-medium text-muted-foreground">Type</th>
+                            <th class="text-left py-2 font-medium text-muted-foreground">Description</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {meta.props.map((p) => (
+                            <tr class="border-b last:border-0">
+                              <td class="py-2 pr-4"><code class="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">{p.name}</code></td>
+                              <td class="py-2 pr-4 text-muted-foreground font-mono text-xs">{p.type}</td>
+                              <td class="py-2 text-muted-foreground text-xs">{p.desc}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- Install -->
+                  <div class="px-6 py-4">
+                    <InstallBlock name={c.name} />
+                  </div>
+                </div>
+              )}
+
+              {c.dependencies?.length > 0 && (
+                <div class="px-6 py-3 border-t bg-muted/20 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span class="font-medium">Dependencies:</span>
+                  {c.dependencies.map((d: string) => (
+                    <code class="rounded bg-muted px-1.5 py-0.5 font-mono">{d}</code>
+                  ))}
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  </section>
+
+  <!-- Hooks -->
+  <section id="hooks" class="border-b">
+    <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
+      <div class="mb-10">
+        <h2 class="font-display text-2xl font-medium tracking-tight mb-2">Hooks</h2>
+        <p class="text-muted-foreground">React hooks for market data, trading, and wallet interaction. All hooks depend on the HIP-4 SDK.</p>
+      </div>
+
+      <div class="space-y-4">
+        {hooks.map((h: any) => {
+          const meta = hookMeta[h.name];
+          return (
+            <article id={h.name} class="rounded-xl border bg-card overflow-hidden">
+              <div class="px-6 py-5">
+                <div class="flex items-center gap-2.5 mb-1.5">
+                  <h3 class="font-mono text-sm font-medium">{h.name}</h3>
+                  <span class="rounded-full bg-blue-500/10 text-blue-500 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">hook</span>
+                </div>
+                <p class="text-sm text-muted-foreground mb-4">{h.description}</p>
+
+                {meta && (
+                  <div class="space-y-4">
+                    <div class="flex flex-wrap items-center gap-2 text-sm font-mono">
+                      <code class="text-foreground">{meta.signature}</code>
+                      <span class="text-muted-foreground">&rarr;</span>
+                      <code class="text-primary">{meta.returns}</code>
+                    </div>
+                    <div class="rounded-lg overflow-hidden text-sm">
+                      <Code code={meta.usage} lang="tsx" theme="github-dark" />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div class="px-6 py-3 border-t">
+                <InstallBlock name={h.name} />
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  </section>
+
+  <!-- Utilities -->
+  {libs.length > 0 && (
+    <section id="utilities" class="border-b">
+      <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
+        <div class="mb-10">
+          <h2 class="font-display text-2xl font-medium tracking-tight mb-2">Utilities</h2>
+          <p class="text-muted-foreground">Shared formatting and helper functions used by components.</p>
+        </div>
+        <div class="space-y-4">
+          {libs.map((l: any) => (
+            <article class="rounded-xl border bg-card px-6 py-5">
+              <div class="flex items-center gap-2.5 mb-1.5">
+                <h3 class="font-mono text-sm font-medium">{l.name}</h3>
+                <span class="rounded-full bg-amber-500/10 text-amber-500 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">lib</span>
+              </div>
+              <p class="text-sm text-muted-foreground mb-4">{l.description}</p>
+              <InstallBlock name={l.name} />
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- Quick Start -->
+  <section class="border-b">
+    <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
+      <div class="mb-10">
+        <h2 class="font-display text-2xl font-medium tracking-tight mb-2">Quick Start</h2>
+        <p class="text-muted-foreground">Three steps to add prediction market components to your app.</p>
+      </div>
+
+      <div class="space-y-8">
+        <!-- Step 1 -->
+        <div class="flex gap-4">
+          <div class="flex flex-col items-center">
+            <div class="flex h-8 w-8 items-center justify-center rounded-full border bg-card text-sm font-medium">1</div>
+            <div class="mt-2 w-px flex-1 bg-border"></div>
+          </div>
+          <div class="flex-1 pb-8">
+            <h3 class="font-medium mb-3">Install the SDK</h3>
+            <div class="rounded-lg overflow-hidden text-sm">
+              <Code code="bun add @purrdict/hip4 viem wagmi" lang="bash" theme="github-dark" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="flex gap-4">
+          <div class="flex flex-col items-center">
+            <div class="flex h-8 w-8 items-center justify-center rounded-full border bg-card text-sm font-medium">2</div>
+            <div class="mt-2 w-px flex-1 bg-border"></div>
+          </div>
+          <div class="flex-1 pb-8">
+            <h3 class="font-medium mb-3">Add a component</h3>
+            <div class="rounded-lg overflow-hidden text-sm mb-3">
+              <Code code="npx shadcn@latest add https://ui.purrdict.xyz/r/market-card.json" lang="bash" theme="github-dark" />
+            </div>
+            <p class="text-sm text-muted-foreground">
+              This installs the component, its dependencies (countdown, format utils), and adds the npm package.
+            </p>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="flex gap-4">
+          <div class="flex flex-col items-center">
+            <div class="flex h-8 w-8 items-center justify-center rounded-full border bg-card text-sm font-medium">3</div>
+          </div>
+          <div class="flex-1">
+            <h3 class="font-medium mb-3">Use it</h3>
+            <div class="rounded-lg overflow-hidden text-sm mb-4">
+              <Code code={quickStartCode} lang="tsx" theme="github-dark" />
+            </div>
+            <p class="text-xs text-muted-foreground mb-3 font-medium uppercase tracking-wide">Or with zero prop-drilling</p>
+            <div class="rounded-lg overflow-hidden text-sm">
+              <Code code={quickStartProviderCode} lang="tsx" theme="github-dark" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Named registry setup -->
+      <div class="mt-12 rounded-xl border bg-card p-6">
+        <h3 class="font-medium mb-1">Named Registry (optional)</h3>
+        <p class="text-sm text-muted-foreground mb-4">
+          Configure a named registry for shorter install commands: <code class="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">npx shadcn@latest add hip4:market-card</code>
+        </p>
+        <div class="rounded-lg overflow-hidden text-sm">
+          <Code code={registrySetup} lang="jsonc" theme="github-dark" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-8">
+    <div class="mx-auto max-w-5xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+      <span>Built by <a href="https://purrdict.xyz" class="text-foreground hover:text-primary transition-colors">Purrdict</a></span>
+      <div class="flex items-center gap-5">
+        <a href="https://x.com/hypurrdict" target="_blank" rel="noopener" class="hover:text-foreground transition-colors">@hypurrdict</a>
+        <a href="https://discord.gg/pM5E9BzDnw" target="_blank" rel="noopener" class="hover:text-foreground transition-colors">Discord</a>
+        <a href="https://purrdict.xyz" target="_blank" rel="noopener" class="hover:text-foreground transition-colors">purrdict.xyz</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Copy button script -->
+  <script>
+    document.querySelectorAll<HTMLButtonElement>(".copy-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const text = btn.dataset.copy || "";
+        navigator.clipboard.writeText(text).then(() => {
+          const copyIcon = btn.querySelector(".copy-icon") as HTMLElement;
+          const checkIcon = btn.querySelector(".check-icon") as HTMLElement;
+          if (copyIcon && checkIcon) {
+            copyIcon.classList.add("hidden");
+            checkIcon.classList.remove("hidden");
+            setTimeout(() => {
+              copyIcon.classList.remove("hidden");
+              checkIcon.classList.add("hidden");
+            }, 1500);
+          }
+        });
+      });
+    });
+  </script>
+</Base>

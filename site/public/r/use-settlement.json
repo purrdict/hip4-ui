@@ -1,0 +1,21 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "use-settlement",
+  "type": "registry:hook",
+  "title": "useSettlement",
+  "description": "Detects when a prediction market outcome has settled by subscribing to user fills. Returns winner, settle price, and closed PnL.",
+  "author": "Purrdict <https://purrdict.xyz>",
+  "dependencies": [
+    "@purrdict/hip4"
+  ],
+  "registryDependencies": [
+    "https://ui.purrdict.xyz/r/use-hip4-client.json"
+  ],
+  "files": [
+    {
+      "path": "hooks/hip4/use-settlement.ts",
+      "type": "registry:hook",
+      "content": "/**\n * useSettlement — detect when a prediction market outcome has settled.\n *\n * Subscribes to userFills for the connected wallet. Settlement fills have\n * dir: \"Settlement\" and px: \"1.0\" (winner) or \"0.0\" (loser).\n *\n * Usage:\n *   const { isSettled, winner, settlePx } = useSettlement(client, address, outcomeId);\n */\n\n\"use client\";\n\nimport { useState, useEffect, useRef } from \"react\";\nimport { subscribeUserFills } from \"@purrdict/hip4\";\nimport type { HIP4Client, Subscription } from \"@purrdict/hip4\";\n\nexport type SettlementResult = \"Yes\" | \"No\" | null;\n\nexport interface UseSettlementResult {\n  /** True if either side of the outcome has settled */\n  isSettled: boolean;\n  /**\n   * The winning side, or null if not yet settled.\n   * Derived from the fill's coin: yesCoin settled at 1.0 = \"Yes\" won.\n   */\n  winner: SettlementResult;\n  /** Settlement price: \"1.0\" = winner, \"0.0\" = loser */\n  settlePx: string | null;\n  /** Closed PnL in USDH from the settlement fill */\n  closedPnl: string | null;\n}\n\n/**\n * Subscribe to settlement events for a specific outcome.\n *\n * @param client     HIP4Client from useHIP4Client()\n * @param address    User wallet address. Pass null if not connected.\n * @param outcomeId  Outcome ID from outcomeMeta (integer)\n */\nexport function useSettlement(\n  client: HIP4Client,\n  address: string | null,\n  outcomeId: number,\n): UseSettlementResult {\n  const [isSettled, setIsSettled] = useState(false);\n  const [winner, setWinner] = useState<SettlementResult>(null);\n  const [settlePx, setSettlePx] = useState<string | null>(null);\n  const [closedPnl, setClosedPnl] = useState<string | null>(null);\n  const subRef = useRef<Subscription | null>(null);\n\n  useEffect(() => {\n    if (!address || !outcomeId) return;\n\n    const yesCoinNum = outcomeId * 10;\n    const noCoinNum = outcomeId * 10 + 1;\n    const yesLabel = `#${yesCoinNum}`;\n    const noLabel = `#${noCoinNum}`;\n\n    let cancelled = false;\n\n    async function subscribe() {\n      try {\n        subRef.current = await subscribeUserFills(\n          client.sub,\n          address!,\n          (fills) => {\n            if (cancelled) return;\n\n            for (const fill of fills) {\n              if (fill.dir !== \"Settlement\") continue;\n              if (fill.coin !== yesLabel && fill.coin !== noLabel) continue;\n\n              setIsSettled(true);\n              setSettlePx(fill.px);\n              setClosedPnl(fill.closedPnl);\n\n              // px \"1.0\" = winner, \"0.0\" = loser.\n              // The coin that settles at 1.0 is the winning side.\n              if (fill.px === \"1.0\") {\n                setWinner(fill.coin === yesLabel ? \"Yes\" : \"No\");\n              } else {\n                // The loser fill gives us the losing side — winner is the other.\n                setWinner(fill.coin === yesLabel ? \"No\" : \"Yes\");\n              }\n            }\n          },\n        );\n      } catch {\n        // Settlement detection is best-effort — don't surface errors.\n      }\n    }\n\n    subscribe();\n\n    return () => {\n      cancelled = true;\n      if (subRef.current) {\n        subRef.current.unsubscribe().catch(() => undefined);\n        subRef.current = null;\n      }\n    };\n  }, [client, address, outcomeId]);\n\n  return { isSettled, winner, settlePx, closedPnl };\n}\n"
+    }
+  ]
+}

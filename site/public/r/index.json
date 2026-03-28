@@ -1,0 +1,186 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "purrdict",
+  "homepage": "https://ui.purrdict.xyz",
+  "items": [
+    {
+      "name": "hip4-format",
+      "type": "registry:lib",
+      "title": "HIP-4 Formatting Utilities",
+      "description": "Price, USDH, countdown, and period formatters for HIP-4 prediction market data.",
+      "dependencies": []
+    },
+    {
+      "name": "market-card",
+      "type": "registry:ui",
+      "title": "Market Card",
+      "description": "Display card for HIP-4 prediction markets with 4 variants: recurring (Up/Down), event (Yes/No), named-binary (custom sides), and question (multi-outcome).",
+      "dependencies": [
+        "@purrdict/hip4"
+      ],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/countdown.json",
+        "https://ui.purrdict.xyz/r/hip4-format.json"
+      ]
+    },
+    {
+      "name": "live-price-chart",
+      "type": "registry:ui",
+      "title": "Live Price Chart",
+      "description": "Real-time ticking price chart for prediction markets. Shows asset price history with 1-second updates, target price reference line, and asset-branded color. Polymarket-style.",
+      "dependencies": [],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/hip4-format.json"
+      ]
+    },
+    {
+      "name": "orderbook",
+      "type": "registry:ui",
+      "title": "Orderbook",
+      "description": "Dual-pane L2 orderbook with color-coded depth bars, spread display, user order highlighting, and click-to-set-price interaction.",
+      "dependencies": [
+        "@purrdict/hip4"
+      ],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/hip4-format.json"
+      ]
+    },
+    {
+      "name": "recent-trades",
+      "type": "registry:ui",
+      "title": "Recent Trades",
+      "description": "Scrollable trade feed showing recent market trades with color-coded buy/sell sides, monospace prices, and timestamps.",
+      "dependencies": []
+    },
+    {
+      "name": "trade-form",
+      "type": "registry:ui",
+      "title": "Trade Form",
+      "description": "Complete prediction market trade form with market/limit modes, order summary (payout, profit, slippage), tick-size validation, min-shares enforcement, and builder fee support.",
+      "dependencies": [
+        "@purrdict/hip4"
+      ],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/hip4-format.json",
+        "https://ui.purrdict.xyz/r/use-trade.json"
+      ]
+    },
+    {
+      "name": "market-stats",
+      "type": "registry:ui",
+      "title": "Market Stats",
+      "description": "Compact inline stats display showing volume, trade count, and unique trader count with icons.",
+      "dependencies": [],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/hip4-format.json"
+      ]
+    },
+    {
+      "name": "probability-bar",
+      "type": "registry:ui",
+      "title": "Probability Bar",
+      "description": "Two-tone horizontal probability bar showing Yes/No (or custom) side probabilities with labels and smooth transitions.",
+      "dependencies": []
+    },
+    {
+      "name": "countdown",
+      "type": "registry:ui",
+      "title": "Countdown",
+      "description": "Segmented countdown timer with urgency colors. Shows DAYS/HRS/MINS/SECS with red (<1h), amber (<6h), normal states. Includes text variant.",
+      "dependencies": [],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/hip4-format.json"
+      ]
+    },
+    {
+      "name": "position-card",
+      "type": "registry:ui",
+      "title": "Position Card",
+      "description": "Displays a user's position with shares, current value, average entry, and unrealized P&L with color coding.",
+      "dependencies": [],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/hip4-format.json"
+      ]
+    },
+    {
+      "name": "use-hip4-client",
+      "type": "registry:hook",
+      "title": "useHIP4Client",
+      "description": "Creates and caches an @purrdict/hip4 client with WebSocket subscription support. Manages lifecycle and cleanup on unmount.",
+      "dependencies": [
+        "@purrdict/hip4"
+      ]
+    },
+    {
+      "name": "use-hip4-signer",
+      "type": "registry:hook",
+      "title": "useHIP4Signer",
+      "description": "Adapts any wagmi wallet (MetaMask, WalletConnect, Privy, etc.) to the HIP-4 SDK signer interface. Returns null when disconnected.",
+      "dependencies": [
+        "wagmi",
+        "viem"
+      ]
+    },
+    {
+      "name": "use-markets",
+      "type": "registry:hook",
+      "title": "useMarkets",
+      "description": "Discovers active HIP-4 markets and subscribes to live mid prices via WebSocket. Returns stable markets array with useMemo to prevent downstream rerenders.",
+      "dependencies": [
+        "@purrdict/hip4"
+      ],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/use-hip4-client.json"
+      ]
+    },
+    {
+      "name": "use-orderbook",
+      "type": "registry:hook",
+      "title": "useOrderbook",
+      "description": "Subscribes to the L2 orderbook for a prediction market coin. Returns bids, asks, spread, and mid price with live WebSocket updates.",
+      "dependencies": [
+        "@purrdict/hip4"
+      ],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/use-hip4-client.json"
+      ]
+    },
+    {
+      "name": "use-portfolio",
+      "type": "registry:hook",
+      "title": "usePortfolio",
+      "description": "Fetches USDH balance, outcome token positions, and open orders for a wallet address. Stable return object with useCallback for refresh.",
+      "dependencies": [
+        "@purrdict/hip4"
+      ],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/use-hip4-client.json"
+      ]
+    },
+    {
+      "name": "use-trade",
+      "type": "registry:hook",
+      "title": "useTrade",
+      "description": "Place and cancel HIP-4 prediction market orders. Handles builder fee attachment, tick alignment, and order signing via the SDK.",
+      "dependencies": [
+        "@purrdict/hip4"
+      ],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/use-hip4-client.json",
+        "https://ui.purrdict.xyz/r/use-hip4-signer.json"
+      ]
+    },
+    {
+      "name": "use-min-shares",
+      "type": "registry:hook",
+      "title": "useMinShares",
+      "description": "Computes the minimum order size for a prediction market coin based on mark price from spotMetaAndAssetCtxs.",
+      "dependencies": [
+        "@purrdict/hip4"
+      ],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/use-hip4-client.json"
+      ]
+    }
+  ]
+}

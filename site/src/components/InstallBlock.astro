@@ -1,0 +1,33 @@
+---
+/**
+ * Reusable install command block with copy button.
+ * Shows the npx shadcn command for a registry item.
+ */
+interface Props {
+  name: string;
+  class?: string;
+}
+
+const { name, class: className = "" } = Astro.props;
+const command = `npx shadcn@latest add https://ui.purrdict.xyz/r/${name}.json`;
+---
+
+<div class:list={["group relative flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 font-mono text-xs", className]}>
+  <span class="text-muted-foreground select-none">$</span>
+  <code class="flex-1 truncate text-foreground/80 cursor-pointer select-all" title={command}>
+    {command}
+  </code>
+  <button
+    class="copy-btn shrink-0 rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+    data-copy={command}
+    aria-label="Copy install command"
+  >
+    <svg class="copy-icon h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+    </svg>
+    <svg class="check-icon h-3.5 w-3.5 hidden text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+  </button>
+</div>

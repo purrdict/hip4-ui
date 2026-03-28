@@ -1,0 +1,426 @@
+/**
+ * generate-registry.ts
+ *
+ * Reads source files from packages/hip4-ui/src and generates shadcn v2
+ * registry JSONs with inline `content` fields at public/r/*.json.
+ *
+ * Run: bun scripts/generate-registry.ts
+ * Also invoked automatically during `bun run build`.
+ */
+
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { join, resolve } from "path";
+
+const ROOT = resolve(import.meta.dir, "..");
+const SRC = resolve(ROOT, "../src");
+const OUT = join(ROOT, "public/r");
+const PKG_OUT = resolve(ROOT, "../registry/hip4");
+
+const AUTHOR = "Purrdict <https://purrdict.xyz>";
+const SCHEMA = "https://ui.shadcn.com/schema/registry-item.json";
+const BASE_URL = "https://ui.purrdict.xyz/r";
+
+function readSrc(path: string): string {
+  return readFileSync(join(SRC, path), "utf-8");
+}
+
+interface RegistryFile {
+  path: string;
+  type: string;
+  content: string;
+}
+
+interface RegistryItem {
+  $schema: string;
+  name: string;
+  type: string;
+  title: string;
+  description: string;
+  author: string;
+  dependencies: string[];
+  devDependencies?: string[];
+  registryDependencies?: string[];
+  files: RegistryFile[];
+}
+
+// ----- Source content -----
+
+const formatContent = readSrc("lib/format.ts");
+const countdownContent = readSrc("components/countdown.tsx");
+const marketCardContent = readSrc("components/market-card.tsx");
+const orderbookContent = readSrc("components/orderbook.tsx");
+const positionCardContent = readSrc("components/position-card.tsx");
+const tradeFormContent = readSrc("components/trade-form.tsx");
+const probabilityBarContent = readSrc("components/probability-bar.tsx");
+const marketStatsContent = readSrc("components/market-stats.tsx");
+const recentTradesContent = readSrc("components/recent-trades.tsx");
+const livePriceChartContent = readSrc("components/live-price-chart.tsx");
+const useHip4ClientContent = readSrc("hooks/use-hip4-client.ts");
+const useHip4SignerContent = readSrc("hooks/use-hip4-signer.ts");
+const useMarketsContent = readSrc("hooks/use-markets.ts");
+const useOrderbookContent = readSrc("hooks/use-orderbook.ts");
+const usePortfolioContent = readSrc("hooks/use-portfolio.ts");
+const useTradeContent = readSrc("hooks/use-trade.ts");
+const useMinSharesContent = readSrc("hooks/use-min-shares.ts");
+
+// ----- Helper files -----
+
+const formatFile: RegistryFile = {
+  path: "lib/hip4/format.ts",
+  type: "registry:lib",
+  content: formatContent,
+};
+
+const countdownFile: RegistryFile = {
+  path: "components/hip4/countdown.tsx",
+  type: "registry:ui",
+  content: countdownContent,
+};
+
+const useHip4SignerFile: RegistryFile = {
+  path: "hooks/hip4/use-hip4-signer.ts",
+  type: "registry:hook",
+  content: useHip4SignerContent,
+};
+
+// ----- Registry items -----
+
+const items: RegistryItem[] = [
+  // Lib
+  {
+    $schema: SCHEMA,
+    name: "hip4-format",
+    type: "registry:lib",
+    title: "HIP-4 Formatting Utilities",
+    description:
+      "Price, USDH, countdown, and period formatters for HIP-4 prediction market data.",
+    author: AUTHOR,
+    dependencies: [],
+    files: [formatFile],
+  },
+
+  // Components — ordered: cards → chart → book → trades → form → stats → bar → countdown → position
+  {
+    $schema: SCHEMA,
+    name: "market-card",
+    type: "registry:ui",
+    title: "Market Card",
+    description:
+      "Display card for HIP-4 prediction markets with 4 variants: recurring (Up/Down), event (Yes/No), named-binary (custom sides), and question (multi-outcome).",
+    author: AUTHOR,
+    dependencies: ["@purrdict/hip4"],
+    registryDependencies: [
+      `${BASE_URL}/countdown.json`,
+      `${BASE_URL}/hip4-format.json`,
+    ],
+    files: [
+      {
+        path: "components/hip4/market-card.tsx",
+        type: "registry:ui",
+        content: marketCardContent,
+      },
+      countdownFile,
+      formatFile,
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "live-price-chart",
+    type: "registry:ui",
+    title: "Live Price Chart",
+    description:
+      "Real-time ticking price chart for prediction markets. Shows asset price history with 1-second updates, target price reference line, and asset-branded color. Polymarket-style.",
+    author: AUTHOR,
+    dependencies: [],
+    registryDependencies: [`${BASE_URL}/hip4-format.json`],
+    files: [
+      {
+        path: "components/hip4/live-price-chart.tsx",
+        type: "registry:ui",
+        content: livePriceChartContent,
+      },
+      formatFile,
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "orderbook",
+    type: "registry:ui",
+    title: "Orderbook",
+    description:
+      "Dual-pane L2 orderbook with color-coded depth bars, spread display, user order highlighting, and click-to-set-price interaction.",
+    author: AUTHOR,
+    dependencies: ["@purrdict/hip4"],
+    registryDependencies: [`${BASE_URL}/hip4-format.json`],
+    files: [
+      {
+        path: "components/hip4/orderbook.tsx",
+        type: "registry:ui",
+        content: orderbookContent,
+      },
+      formatFile,
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "recent-trades",
+    type: "registry:ui",
+    title: "Recent Trades",
+    description:
+      "Scrollable trade feed showing recent market trades with color-coded buy/sell sides, monospace prices, and timestamps.",
+    author: AUTHOR,
+    dependencies: [],
+    files: [
+      {
+        path: "components/hip4/recent-trades.tsx",
+        type: "registry:ui",
+        content: recentTradesContent,
+      },
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "trade-form",
+    type: "registry:ui",
+    title: "Trade Form",
+    description:
+      "Complete prediction market trade form with market/limit modes, order summary (payout, profit, slippage), tick-size validation, min-shares enforcement, and builder fee support.",
+    author: AUTHOR,
+    dependencies: ["@purrdict/hip4"],
+    registryDependencies: [
+      `${BASE_URL}/hip4-format.json`,
+      `${BASE_URL}/use-trade.json`,
+    ],
+    files: [
+      {
+        path: "components/hip4/trade-form.tsx",
+        type: "registry:ui",
+        content: tradeFormContent,
+      },
+      formatFile,
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "market-stats",
+    type: "registry:ui",
+    title: "Market Stats",
+    description:
+      "Compact inline stats display showing volume, trade count, and unique trader count with icons.",
+    author: AUTHOR,
+    dependencies: [],
+    registryDependencies: [`${BASE_URL}/hip4-format.json`],
+    files: [
+      {
+        path: "components/hip4/market-stats.tsx",
+        type: "registry:ui",
+        content: marketStatsContent,
+      },
+      formatFile,
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "probability-bar",
+    type: "registry:ui",
+    title: "Probability Bar",
+    description:
+      "Two-tone horizontal probability bar showing Yes/No (or custom) side probabilities with labels and smooth transitions.",
+    author: AUTHOR,
+    dependencies: [],
+    files: [
+      {
+        path: "components/hip4/probability-bar.tsx",
+        type: "registry:ui",
+        content: probabilityBarContent,
+      },
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "countdown",
+    type: "registry:ui",
+    title: "Countdown",
+    description:
+      "Segmented countdown timer with urgency colors. Shows DAYS/HRS/MINS/SECS with red (<1h), amber (<6h), normal states. Includes text variant.",
+    author: AUTHOR,
+    dependencies: [],
+    registryDependencies: [`${BASE_URL}/hip4-format.json`],
+    files: [countdownFile, formatFile],
+  },
+  {
+    $schema: SCHEMA,
+    name: "position-card",
+    type: "registry:ui",
+    title: "Position Card",
+    description:
+      "Displays a user's position with shares, current value, average entry, and unrealized P&L with color coding.",
+    author: AUTHOR,
+    dependencies: [],
+    registryDependencies: [`${BASE_URL}/hip4-format.json`],
+    files: [
+      {
+        path: "components/hip4/position-card.tsx",
+        type: "registry:ui",
+        content: positionCardContent,
+      },
+      formatFile,
+    ],
+  },
+
+  // Hooks
+  {
+    $schema: SCHEMA,
+    name: "use-hip4-client",
+    type: "registry:hook",
+    title: "useHIP4Client",
+    description:
+      "Creates and caches an @purrdict/hip4 client with WebSocket subscription support. Manages lifecycle and cleanup on unmount.",
+    author: AUTHOR,
+    dependencies: ["@purrdict/hip4"],
+    files: [
+      {
+        path: "hooks/hip4/use-hip4-client.ts",
+        type: "registry:hook",
+        content: useHip4ClientContent,
+      },
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "use-hip4-signer",
+    type: "registry:hook",
+    title: "useHIP4Signer",
+    description:
+      "Adapts any wagmi wallet (MetaMask, WalletConnect, Privy, etc.) to the HIP-4 SDK signer interface. Returns null when disconnected.",
+    author: AUTHOR,
+    dependencies: ["wagmi", "viem"],
+    files: [useHip4SignerFile],
+  },
+  {
+    $schema: SCHEMA,
+    name: "use-markets",
+    type: "registry:hook",
+    title: "useMarkets",
+    description:
+      "Discovers active HIP-4 markets and subscribes to live mid prices via WebSocket. Returns stable markets array with useMemo to prevent downstream rerenders.",
+    author: AUTHOR,
+    dependencies: ["@purrdict/hip4"],
+    registryDependencies: [`${BASE_URL}/use-hip4-client.json`],
+    files: [
+      {
+        path: "hooks/hip4/use-markets.ts",
+        type: "registry:hook",
+        content: useMarketsContent,
+      },
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "use-orderbook",
+    type: "registry:hook",
+    title: "useOrderbook",
+    description:
+      "Subscribes to the L2 orderbook for a prediction market coin. Returns bids, asks, spread, and mid price with live WebSocket updates.",
+    author: AUTHOR,
+    dependencies: ["@purrdict/hip4"],
+    registryDependencies: [`${BASE_URL}/use-hip4-client.json`],
+    files: [
+      {
+        path: "hooks/hip4/use-orderbook.ts",
+        type: "registry:hook",
+        content: useOrderbookContent,
+      },
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "use-portfolio",
+    type: "registry:hook",
+    title: "usePortfolio",
+    description:
+      "Fetches USDH balance, outcome token positions, and open orders for a wallet address. Stable return object with useCallback for refresh.",
+    author: AUTHOR,
+    dependencies: ["@purrdict/hip4"],
+    registryDependencies: [`${BASE_URL}/use-hip4-client.json`],
+    files: [
+      {
+        path: "hooks/hip4/use-portfolio.ts",
+        type: "registry:hook",
+        content: usePortfolioContent,
+      },
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "use-trade",
+    type: "registry:hook",
+    title: "useTrade",
+    description:
+      "Place and cancel HIP-4 prediction market orders. Handles builder fee attachment, tick alignment, and order signing via the SDK.",
+    author: AUTHOR,
+    dependencies: ["@purrdict/hip4"],
+    registryDependencies: [
+      `${BASE_URL}/use-hip4-client.json`,
+      `${BASE_URL}/use-hip4-signer.json`,
+    ],
+    files: [
+      {
+        path: "hooks/hip4/use-trade.ts",
+        type: "registry:hook",
+        content: useTradeContent,
+      },
+      useHip4SignerFile,
+    ],
+  },
+  {
+    $schema: SCHEMA,
+    name: "use-min-shares",
+    type: "registry:hook",
+    title: "useMinShares",
+    description:
+      "Computes the minimum order size for a prediction market coin based on mark price from spotMetaAndAssetCtxs.",
+    author: AUTHOR,
+    dependencies: ["@purrdict/hip4"],
+    registryDependencies: [`${BASE_URL}/use-hip4-client.json`],
+    files: [
+      {
+        path: "hooks/hip4/use-min-shares.ts",
+        type: "registry:hook",
+        content: useMinSharesContent,
+      },
+    ],
+  },
+];
+
+// ----- Write output -----
+
+mkdirSync(OUT, { recursive: true });
+mkdirSync(PKG_OUT, { recursive: true });
+
+for (const item of items) {
+  const json = JSON.stringify(item, null, 2) + "\n";
+  writeFileSync(join(OUT, `${item.name}.json`), json);
+  writeFileSync(join(PKG_OUT, `${item.name}.json`), json);
+}
+
+// Top-level registry index
+const registryIndex = {
+  $schema: "https://ui.shadcn.com/schema/registry.json",
+  name: "purrdict",
+  homepage: "https://ui.purrdict.xyz",
+  items: items.map((item) => ({
+    name: item.name,
+    type: item.type,
+    title: item.title,
+    description: item.description,
+    dependencies: item.dependencies,
+    registryDependencies: item.registryDependencies,
+  })),
+};
+
+writeFileSync(join(OUT, "index.json"), JSON.stringify(registryIndex, null, 2) + "\n");
+
+console.log(`Generated ${items.length} registry items + index.json`);
+console.log(`  -> ${OUT}/`);
+console.log(`  -> ${PKG_OUT}/`);

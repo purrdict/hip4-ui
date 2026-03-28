@@ -1,0 +1,82 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = "Prediction market React components for Hyperliquid HIP-4. Built on shadcn/ui, wagmi, and Tailwind CSS.",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://ui.purrdict.xyz" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@hypurrdict" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="min-h-screen font-sans antialiased">
+    <slot />
+
+    <script is:inline>
+      // Theme toggle: check localStorage then system preference
+      const theme = (() => {
+        if (typeof localStorage !== "undefined" && localStorage.getItem("theme")) {
+          return localStorage.getItem("theme");
+        }
+        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      })();
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  @import "../styles/globals.css";
+
+  /* Selection color */
+  ::selection {
+    background: hsl(var(--primary) / 0.25);
+    color: hsl(var(--foreground));
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Code blocks */
+  code, pre {
+    overflow-wrap: break-word;
+  }
+
+  pre {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Astro Code component — add padding to generated pre/code */
+  .astro-code {
+    padding: 1rem 1.25rem !important;
+    border-radius: 0.5rem !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.6 !important;
+  }
+</style>

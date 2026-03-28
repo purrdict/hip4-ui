@@ -1,0 +1,19 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "use-hip4-signer",
+  "type": "registry:hook",
+  "title": "useHIP4Signer",
+  "description": "Adapts any wagmi wallet (MetaMask, WalletConnect, Privy, etc.) to the HIP-4 SDK signer interface. Returns null when disconnected.",
+  "author": "Purrdict <https://purrdict.xyz>",
+  "dependencies": [
+    "wagmi",
+    "viem"
+  ],
+  "files": [
+    {
+      "path": "hooks/hip4/use-hip4-signer.ts",
+      "type": "registry:hook",
+      "content": "/**\n * useHIP4Signer — adapts any wagmi wallet to the SDK signer interface.\n *\n * Works with MetaMask, WalletConnect, Privy, Turnkey, Coinbase Wallet,\n * and any other connector compatible with wagmi v2.\n *\n * Returns null when no wallet is connected or the wallet client is not\n * yet available (e.g. during initial load).\n *\n * Usage:\n *   const signer = useHIP4Signer();\n *   if (!signer) return <ConnectButton />;\n *   const exchange = client.exchange(signer.walletClient);\n */\n\n\"use client\";\n\nimport { useAccount, useWalletClient } from \"wagmi\";\nimport type { WalletClient } from \"viem\";\n\nexport interface HIP4Signer {\n  /** Connected wallet address */\n  address: `0x${string}`;\n  /** wagmi WalletClient — can be passed directly to client.exchange() */\n  walletClient: WalletClient;\n}\n\n/**\n * Returns the active wallet as an HIP4Signer, or null if not connected.\n *\n * The walletClient is compatible with @nktkas/hyperliquid ExchangeClient.\n * Pass it to `client.exchange(signer.walletClient)` to create an exchange\n * client that signs with the user's browser wallet.\n */\nexport function useHIP4Signer(): HIP4Signer | null {\n  const { address } = useAccount();\n  const { data: walletClient } = useWalletClient();\n\n  if (!address || !walletClient) return null;\n\n  return { address, walletClient: walletClient as WalletClient };\n}\n"
+    }
+  ]
+}

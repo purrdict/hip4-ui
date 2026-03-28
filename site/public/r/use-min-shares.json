@@ -1,0 +1,21 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "use-min-shares",
+  "type": "registry:hook",
+  "title": "useMinShares",
+  "description": "Computes the minimum order size for a prediction market coin based on mark price from spotMetaAndAssetCtxs.",
+  "author": "Purrdict <https://purrdict.xyz>",
+  "dependencies": [
+    "@purrdict/hip4"
+  ],
+  "registryDependencies": [
+    "https://ui.purrdict.xyz/r/use-hip4-client.json"
+  ],
+  "files": [
+    {
+      "path": "hooks/hip4/use-min-shares.ts",
+      "type": "registry:hook",
+      "content": "/**\n * useMinShares — compute the minimum order size for a prediction market coin.\n *\n * Fetches spotMetaAndAssetCtxs to find the mark price, then applies the\n * community formula: ceil(10 / max(min(markPx, 1 - markPx), 0.01))\n *\n * Usage:\n *   const minShares = useMinShares(client, \"#9860\");\n *   // → e.g. 20 at markPx = 0.5\n */\n\n\"use client\";\n\nimport { useState, useEffect } from \"react\";\nimport { getMinShares } from \"@purrdict/hip4\";\nimport type { HIP4Client } from \"./use-hip4-client.js\";\nimport { useHIP4Context } from \"./hip4-provider.js\";\n\nexport interface UseMinSharesResult {\n  /** Minimum shares required for a valid order at the current mark price */\n  minShares: number;\n  /** The current mark price fetched from spotMetaAndAssetCtxs */\n  markPx: number | null;\n  isLoading: boolean;\n  error: Error | null;\n}\n\n/**\n * Fetch the minimum order size for a prediction market coin.\n *\n * @param client  HIP4Client — optional when wrapped in <HIP4Provider>\n * @param coin    Coin name — e.g. \"#9860\" for a prediction market yes coin\n */\nexport function useMinShares(\n  client: HIP4Client | undefined,\n  coin: string,\n): UseMinSharesResult;\nexport function useMinShares(\n  coin: string,\n): UseMinSharesResult;\nexport function useMinShares(\n  clientOrCoin: HIP4Client | string | undefined,\n  coin?: string,\n): UseMinSharesResult {\n  const isContextMode = typeof clientOrCoin === \"string\";\n  const explicitClient: HIP4Client | undefined = isContextMode\n    ? undefined\n    : (clientOrCoin as HIP4Client | undefined);\n  const resolvedCoin: string = isContextMode\n    ? (clientOrCoin as string)\n    : (coin as string);\n\n  const ctxClient = useHIP4Context();\n  const resolvedClient = explicitClient ?? ctxClient;\n  if (!resolvedClient) {\n    throw new Error(\n      \"useMinShares requires a HIP4Client. Either pass it as an argument or wrap your app in <HIP4Provider>.\",\n    );\n  }\n  const safeClient = resolvedClient;\n\n  const [minShares, setMinShares] = useState<number>(20);\n  const [markPx, setMarkPx] = useState<number | null>(null);\n  const [isLoading, setIsLoading] = useState(true);\n  const [error, setError] = useState<Error | null>(null);\n\n  useEffect(() => {\n    if (!resolvedCoin) return;\n\n    let cancelled = false;\n\n    async function fetchData() {\n      setIsLoading(true);\n      setError(null);\n\n      try {\n        // spotMetaAndAssetCtxs returns [SpotMetaResponse, SpotAssetCtxSchema[]]\n        // SpotMetaResponse.tokens[i].name corresponds to SpotAssetCtxSchema[i].\n        // Prediction market coins appear as \"#N\" (e.g. \"#9860\") in token names.\n        const [spotMeta, ctxs] = await safeClient.info.spotMetaAndAssetCtxs();\n\n        if (cancelled) return;\n\n        // Match the coin name against the spot meta tokens list.\n        const tokenIdx = spotMeta.tokens.findIndex((t) => t.name === resolvedCoin);\n        const matchedCtx = tokenIdx >= 0 ? ctxs[tokenIdx] : undefined;\n\n        if (matchedCtx && matchedCtx.markPx) {\n          const px = parseFloat(matchedCtx.markPx);\n          setMarkPx(px);\n          setMinShares(getMinShares(px));\n        } else {\n          // Fall back: default to 20 shares (assumes markPx near 0.5).\n          setMarkPx(null);\n          setMinShares(20);\n        }\n      } catch (err) {\n        if (!cancelled) {\n          setError(err instanceof Error ? err : new Error(String(err)));\n        }\n      } finally {\n        if (!cancelled) {\n          setIsLoading(false);\n        }\n      }\n    }\n\n    fetchData();\n\n    return () => {\n      cancelled = true;\n    };\n  }, [resolvedClient, resolvedCoin]);\n\n  return { minShares, markPx, isLoading, error };\n}\n"
+    }
+  ]
+}
