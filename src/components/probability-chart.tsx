@@ -14,29 +14,19 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 
-/** Auto-assigned color palette — 8 colors, wraps around for more series */
+/** Auto-assigned color palette — 8 visually distinct colors for dark backgrounds */
 export const OUTCOME_COLORS = [
-  "#ef4444", // red
-  "#f59e0b", // amber
-  "#3b82f6", // blue
-  "#8b5cf6", // violet
-  "#10b981", // emerald
-  "#06b6d4", // cyan
-  "#f43f5e", // rose
-  "#84cc16", // lime
+  "#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6",
+  "#10b981", "#06b6d4", "#f43f5e", "#84cc16",
 ];
 
+/** A single outcome's data for the chart. Same type as useProbabilityHistory returns. */
 export interface OutcomeSeries {
-  /** Unique ID (e.g. coin name) */
   id: string;
-  /** Display label (e.g. "Akami", "Canned Tuna") */
   label: string;
-  /** Line color — auto-assigned from OUTCOME_COLORS if not provided */
-  color?: string;
-  /** History: { time: unixSeconds, value: 0-1 }[] */
+  color: string;
   data: Array<{ time: number; value: number }>;
-  /** Current live value (0-1) */
-  currentValue?: number;
+  currentValue: number;
 }
 
 export interface ProbabilityChartProps {

@@ -19,6 +19,10 @@ import { useHIP4Context } from "./hip4-provider.js";
 import type { OutcomeSeries } from "../components/probability-chart.js";
 import { OUTCOME_COLORS } from "../components/probability-chart.js";
 
+// Re-export for consumers who import from the hook
+export type { OutcomeSeries };
+export { OUTCOME_COLORS };
+
 /** Max data points kept per series */
 const MAX_POINTS = 1440; // 24h of 1-minute candles
 
