@@ -15,7 +15,7 @@
 
 // Hooks
 export { useHIP4Client } from "./hooks/use-hip4-client.js";
-export type { UseHIP4ClientOptions } from "./hooks/use-hip4-client.js";
+export type { HIP4Client, UseHIP4ClientOptions } from "./hooks/use-hip4-client.js";
 
 export { HIP4Provider, useHIP4Context } from "./hooks/hip4-provider.js";
 export type { HIP4ProviderProps } from "./hooks/hip4-provider.js";
@@ -34,6 +34,9 @@ export type { TradeParams, UseTradeResult } from "./hooks/use-trade.js";
 
 export { useMinShares } from "./hooks/use-min-shares.js";
 export type { UseMinSharesResult } from "./hooks/use-min-shares.js";
+
+export { useMarket } from "./hooks/use-market.js";
+export type { UseMarketResult } from "./hooks/use-market.js";
 
 export { usePortfolio } from "./hooks/use-portfolio.js";
 export type { Position, UsePortfolioResult } from "./hooks/use-portfolio.js";
