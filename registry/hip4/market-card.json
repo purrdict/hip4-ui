@@ -1,0 +1,21 @@
+{
+  "name": "market-card",
+  "type": "registry:ui",
+  "description": "Card displaying a HIP-4 prediction market with Yes/No prices and expiry countdown.",
+  "dependencies": ["@purrdict/hip4"],
+  "registryDependencies": ["card", "badge"],
+  "files": [
+    {
+      "path": "components/hip4/market-card.tsx",
+      "type": "registry:ui"
+    },
+    {
+      "path": "components/hip4/countdown-timer.tsx",
+      "type": "registry:ui"
+    },
+    {
+      "path": "lib/hip4/format.ts",
+      "type": "registry:lib"
+    }
+  ]
+}

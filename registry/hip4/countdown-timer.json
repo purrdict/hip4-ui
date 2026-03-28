@@ -1,0 +1,17 @@
+{
+  "name": "countdown-timer",
+  "type": "registry:ui",
+  "description": "Live countdown timer that ticks to market expiry, showing 'Settled' when expired.",
+  "dependencies": [],
+  "registryDependencies": [],
+  "files": [
+    {
+      "path": "components/hip4/countdown-timer.tsx",
+      "type": "registry:ui"
+    },
+    {
+      "path": "lib/hip4/format.ts",
+      "type": "registry:lib"
+    }
+  ]
+}

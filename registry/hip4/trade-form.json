@@ -1,0 +1,25 @@
+{
+  "name": "trade-form",
+  "type": "registry:ui",
+  "description": "Full prediction market trade form: market/limit modes, min-shares validation, tick-size pricing, builder fee support.",
+  "dependencies": ["@purrdict/hip4"],
+  "registryDependencies": ["button", "input", "label"],
+  "files": [
+    {
+      "path": "components/hip4/trade-form.tsx",
+      "type": "registry:ui"
+    },
+    {
+      "path": "hooks/hip4/use-trade.ts",
+      "type": "registry:hook"
+    },
+    {
+      "path": "hooks/hip4/use-hip4-signer.ts",
+      "type": "registry:hook"
+    },
+    {
+      "path": "lib/hip4/format.ts",
+      "type": "registry:lib"
+    }
+  ]
+}

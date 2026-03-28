@@ -1,0 +1,21 @@
+{
+  "name": "orderbook",
+  "type": "registry:ui",
+  "description": "L2 orderbook for a HIP-4 prediction market coin with depth visualization.",
+  "dependencies": ["@purrdict/hip4"],
+  "registryDependencies": [],
+  "files": [
+    {
+      "path": "components/hip4/orderbook.tsx",
+      "type": "registry:ui"
+    },
+    {
+      "path": "hooks/hip4/use-orderbook.ts",
+      "type": "registry:hook"
+    },
+    {
+      "path": "lib/hip4/format.ts",
+      "type": "registry:lib"
+    }
+  ]
+}

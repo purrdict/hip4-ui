@@ -1,0 +1,13 @@
+{
+  "name": "market-grid",
+  "type": "registry:ui",
+  "description": "Filterable responsive grid of HIP-4 market cards with search.",
+  "dependencies": ["@purrdict/hip4"],
+  "registryDependencies": ["market-card"],
+  "files": [
+    {
+      "path": "components/hip4/market-grid.tsx",
+      "type": "registry:ui"
+    }
+  ]
+}

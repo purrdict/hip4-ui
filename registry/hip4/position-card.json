@@ -1,0 +1,21 @@
+{
+  "name": "position-card",
+  "type": "registry:ui",
+  "description": "Card showing a user's position in a prediction market with P&L.",
+  "dependencies": ["@purrdict/hip4"],
+  "registryDependencies": ["card"],
+  "files": [
+    {
+      "path": "components/hip4/position-card.tsx",
+      "type": "registry:ui"
+    },
+    {
+      "path": "hooks/hip4/use-portfolio.ts",
+      "type": "registry:hook"
+    },
+    {
+      "path": "lib/hip4/format.ts",
+      "type": "registry:lib"
+    }
+  ]
+}

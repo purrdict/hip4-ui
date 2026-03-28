@@ -1,0 +1,17 @@
+{
+  "name": "settlement-banner",
+  "type": "registry:ui",
+  "description": "Banner showing a resolved prediction market result with winner and oracle price.",
+  "dependencies": [],
+  "registryDependencies": [],
+  "files": [
+    {
+      "path": "components/hip4/settlement-banner.tsx",
+      "type": "registry:ui"
+    },
+    {
+      "path": "hooks/hip4/use-settlement.ts",
+      "type": "registry:hook"
+    }
+  ]
+}
