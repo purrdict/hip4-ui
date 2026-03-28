@@ -51,6 +51,7 @@ function readSrc(path: string): string {
 interface RegistryFile {
   path: string;
   type: string;
+  target: string;
   content: string;
 }
 
@@ -94,24 +95,28 @@ const hip4ProviderContent = readSrc("hooks/hip4-provider.tsx");
 const formatFile: RegistryFile = {
   path: "lib/hip4/format.ts",
   type: "registry:lib",
+  target: "lib/hip4/format.ts",
   content: formatContent,
 };
 
 const countdownFile: RegistryFile = {
   path: "components/hip4/countdown.tsx",
   type: "registry:ui",
+  target: "components/hip4/countdown.tsx",
   content: countdownContent,
 };
 
 const useHip4SignerFile: RegistryFile = {
   path: "hooks/hip4/use-hip4-signer.ts",
   type: "registry:hook",
+  target: "hooks/hip4/use-hip4-signer.ts",
   content: useHip4SignerContent,
 };
 
 const hip4ProviderFile: RegistryFile = {
   path: "hooks/hip4/hip4-provider.tsx",
   type: "registry:hook",
+  target: "hooks/hip4/hip4-provider.tsx",
   content: hip4ProviderContent,
 };
 
@@ -296,6 +301,7 @@ const items: RegistryItem[] = [
       {
         path: "components/hip4/market-card.tsx",
         type: "registry:ui",
+        target: "components/hip4/market-card.tsx",
         content: marketCardContent,
       },
       countdownFile,
@@ -316,6 +322,7 @@ const items: RegistryItem[] = [
       {
         path: "components/hip4/live-price-chart.tsx",
         type: "registry:ui",
+        target: "components/hip4/live-price-chart.tsx",
         content: livePriceChartContent,
       },
       formatFile,
@@ -335,6 +342,7 @@ const items: RegistryItem[] = [
       {
         path: "components/hip4/orderbook.tsx",
         type: "registry:ui",
+        target: "components/hip4/orderbook.tsx",
         content: orderbookContent,
       },
       formatFile,
@@ -353,6 +361,7 @@ const items: RegistryItem[] = [
       {
         path: "components/hip4/recent-trades.tsx",
         type: "registry:ui",
+        target: "components/hip4/recent-trades.tsx",
         content: recentTradesContent,
       },
     ],
@@ -374,6 +383,7 @@ const items: RegistryItem[] = [
       {
         path: "components/hip4/trade-form.tsx",
         type: "registry:ui",
+        target: "components/hip4/trade-form.tsx",
         content: tradeFormContent,
       },
       formatFile,
@@ -393,6 +403,7 @@ const items: RegistryItem[] = [
       {
         path: "components/hip4/market-stats.tsx",
         type: "registry:ui",
+        target: "components/hip4/market-stats.tsx",
         content: marketStatsContent,
       },
       formatFile,
@@ -411,6 +422,7 @@ const items: RegistryItem[] = [
       {
         path: "components/hip4/probability-bar.tsx",
         type: "registry:ui",
+        target: "components/hip4/probability-bar.tsx",
         content: probabilityBarContent,
       },
     ],
@@ -441,6 +453,7 @@ const items: RegistryItem[] = [
       {
         path: "components/hip4/position-card.tsx",
         type: "registry:ui",
+        target: "components/hip4/position-card.tsx",
         content: positionCardContent,
       },
       formatFile,
@@ -461,6 +474,7 @@ const items: RegistryItem[] = [
       {
         path: "hooks/hip4/use-hip4-client.ts",
         type: "registry:hook",
+        target: "hooks/hip4/use-hip4-client.ts",
         content: useHip4ClientContent,
       },
     ],
@@ -483,6 +497,7 @@ const items: RegistryItem[] = [
       {
         path: "hooks/hip4/use-hip4-client.ts",
         type: "registry:hook",
+        target: "hooks/hip4/use-hip4-client.ts",
         content: useHip4ClientContent,
       },
     ],
@@ -515,6 +530,7 @@ const items: RegistryItem[] = [
       {
         path: "hooks/hip4/use-markets.ts",
         type: "registry:hook",
+        target: "hooks/hip4/use-markets.ts",
         content: useMarketsContent,
       },
     ],
@@ -536,6 +552,7 @@ const items: RegistryItem[] = [
       {
         path: "hooks/hip4/use-orderbook.ts",
         type: "registry:hook",
+        target: "hooks/hip4/use-orderbook.ts",
         content: useOrderbookContent,
       },
     ],
@@ -557,6 +574,7 @@ const items: RegistryItem[] = [
       {
         path: "hooks/hip4/use-portfolio.ts",
         type: "registry:hook",
+        target: "hooks/hip4/use-portfolio.ts",
         content: usePortfolioContent,
       },
     ],
@@ -578,6 +596,7 @@ const items: RegistryItem[] = [
       {
         path: "hooks/hip4/use-trade.ts",
         type: "registry:hook",
+        target: "hooks/hip4/use-trade.ts",
         content: useTradeContent,
       },
       useHip4SignerFile,
@@ -600,6 +619,7 @@ const items: RegistryItem[] = [
       {
         path: "hooks/hip4/use-min-shares.ts",
         type: "registry:hook",
+        target: "hooks/hip4/use-min-shares.ts",
         content: useMinSharesContent,
       },
     ],
@@ -621,6 +641,7 @@ const items: RegistryItem[] = [
       {
         path: "hooks/hip4/use-recent-trades.ts",
         type: "registry:hook",
+        target: "hooks/hip4/use-recent-trades.ts",
         content: useRecentTradesContent,
       },
     ],
@@ -660,6 +681,7 @@ const items: RegistryItem[] = [
       {
         path: "components/hip4/hip4-quickstart.tsx",
         type: "registry:example",
+        target: "components/hip4/hip4-quickstart.tsx",
         content: quickstartContent,
       },
     ],
