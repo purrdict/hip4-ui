@@ -19,7 +19,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { ISubscription } from "@nktkas/hyperliquid";
 import type { HIP4Client } from "./use-hip4-client.js";
 import { useHIP4Context } from "./hip4-provider.js";
-import type { PricePoint } from "../components/live-price-chart.js";
+
+/** A single time/value point for charting. Defined here so the hook works without the chart component installed. */
+export interface PricePoint {
+  time: number;
+  value: number;
+}
 
 const MAX_POINTS = 3600;
 
