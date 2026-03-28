@@ -57,6 +57,20 @@ const {
     color: hsl(var(--foreground));
   }
 
+  /* Hide scrollbar on mobile nav */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Safe area for bottom nav (iPhone notch) */
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   /* Smooth scrolling */
   html {
     scroll-behavior: smooth;

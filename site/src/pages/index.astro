@@ -466,10 +466,6 @@ const registrySetup = `// components.json — add the hip4 registry
       <div class="flex items-center gap-5">
         <a href="#components" class="hidden text-sm text-muted-foreground hover:text-foreground transition-colors sm:block">Components</a>
         <a href="#hooks" class="hidden text-sm text-muted-foreground hover:text-foreground transition-colors sm:block">Hooks</a>
-        <!-- Mobile nav trigger -->
-        <button id="mobile-nav-btn" class="sm:hidden text-sm text-muted-foreground hover:text-foreground transition-colors" aria-label="Navigation">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-        </button>
         <a href="https://github.com/purrdict/hip4-ui" class="text-sm text-muted-foreground hover:text-foreground transition-colors" target="_blank" rel="noopener">GitHub</a>
         <a href="https://x.com/hypurrdict" class="text-sm text-muted-foreground hover:text-foreground transition-colors" target="_blank" rel="noopener">@hypurrdict</a>
         <ThemeToggle />
@@ -810,55 +806,27 @@ const registrySetup = `// components.json — add the hip4 registry
     </div>
   </footer>
 
-  <!-- Mobile nav overlay -->
-  <div id="mobile-nav" class="fixed inset-0 z-50 hidden">
-    <div id="mobile-nav-backdrop" class="absolute inset-0 bg-background/80 backdrop-blur-sm"></div>
-    <div class="absolute bottom-0 left-0 right-0 max-h-[70vh] overflow-y-auto rounded-t-2xl border-t bg-card p-6 shadow-2xl">
-      <div class="flex items-center justify-between mb-4">
-        <span class="font-display font-medium text-sm">Navigation</span>
-        <button id="mobile-nav-close" class="text-muted-foreground hover:text-foreground p-1">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-      <div class="grid grid-cols-2 gap-6 text-sm">
-        <div>
-          <p class="font-medium text-foreground mb-2 text-xs uppercase tracking-wide">Components</p>
-          <ul class="space-y-2">
-            {components.map((c: any) => (
-              <li><a href={`#${c.name}`} class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors block">{c.title || c.name}</a></li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <p class="font-medium text-foreground mb-2 text-xs uppercase tracking-wide">Hooks</p>
-          <ul class="space-y-2">
-            {hooks.map((h: any) => (
-              <li><a href={`#${h.name}`} class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors block font-mono text-xs">{h.name}</a></li>
-            ))}
-          </ul>
-        </div>
-      </div>
+  <!-- Mobile sticky bottom nav — horizontally scrollable -->
+  <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur-lg safe-area-pb">
+    <div class="flex overflow-x-auto scrollbar-none gap-1 px-2 py-2 text-[11px]">
+      <a href="#components" class="shrink-0 rounded-md px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium">Components</a>
+      {components.map((c: any) => (
+        <a href={`#${c.name}`} class="shrink-0 rounded-md px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors whitespace-nowrap">{c.title || c.name}</a>
+      ))}
+      <span class="shrink-0 w-px bg-border mx-1 self-stretch"></span>
+      <a href="#hooks" class="shrink-0 rounded-md px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium">Hooks</a>
+      {hooks.map((h: any) => (
+        <a href={`#${h.name}`} class="shrink-0 rounded-md px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-mono whitespace-nowrap">{h.name}</a>
+      ))}
+      <span class="shrink-0 w-px bg-border mx-1 self-stretch"></span>
+      <a href="#quick-start" class="shrink-0 rounded-md px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium whitespace-nowrap">Quick Start</a>
     </div>
-  </div>
+  </nav>
+  <!-- Bottom padding to prevent content being hidden behind sticky nav -->
+  <div class="lg:hidden h-12"></div>
 
   <!-- Copy button + mobile nav script -->
   <script>
-    // Mobile nav
-    const mobileNav = document.getElementById("mobile-nav");
-    const mobileBtn = document.getElementById("mobile-nav-btn");
-    const mobileClose = document.getElementById("mobile-nav-close");
-    const mobileBackdrop = document.getElementById("mobile-nav-backdrop");
-
-    function openMobileNav() { mobileNav?.classList.remove("hidden"); }
-    function closeMobileNav() { mobileNav?.classList.add("hidden"); }
-
-    mobileBtn?.addEventListener("click", openMobileNav);
-    mobileClose?.addEventListener("click", closeMobileNav);
-    mobileBackdrop?.addEventListener("click", closeMobileNav);
-    document.querySelectorAll(".mobile-nav-link").forEach((link) => {
-      link.addEventListener("click", closeMobileNav);
-    });
-
     // Copy buttons
     document.querySelectorAll<HTMLButtonElement>(".copy-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
