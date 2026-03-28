@@ -214,10 +214,13 @@ function RecurringCard({
     <CardShell onClick={onClick} className={className}>
       {/* Header: asset logo area + title + percentage */}
       <div className="px-4 pt-4 pb-3 flex items-start gap-3">
-        {/* Asset logo placeholder */}
-        <div className="h-10 w-10 shrink-0 rounded-full bg-secondary/60 ring-1 ring-border/40 flex items-center justify-center">
-          <span className="text-xs font-bold text-muted-foreground">{symbol?.slice(0, 3)}</span>
-        </div>
+        {/* Asset logo — loads from Hyperliquid, falls back to text */}
+        <img
+          src={`https://app.hyperliquid.xyz/coins/${symbol}.svg`}
+          alt={symbol ?? ""}
+          className="h-10 w-10 shrink-0 rounded-full bg-secondary/60 ring-1 ring-border/40 object-cover"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
         <div className="flex-1 min-w-0">
           <p className="text-xs text-muted-foreground uppercase tracking-wide">{symbol}</p>
           <h3 className="font-semibold text-[15px] leading-snug">

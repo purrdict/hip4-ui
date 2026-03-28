@@ -1,0 +1,22 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "use-recent-trades",
+  "type": "registry:hook",
+  "title": "useRecentTrades",
+  "description": "Subscribes to recent trades for a prediction market coin. Returns live trade feed via WebSocket with initial history fetch.",
+  "author": "Purrdict <https://purrdict.xyz>",
+  "dependencies": [
+    "@nktkas/hyperliquid"
+  ],
+  "registryDependencies": [
+    "https://ui.purrdict.xyz/r/use-hip4-client.json",
+    "https://ui.purrdict.xyz/r/hip4-provider.json"
+  ],
+  "files": [
+    {
+      "path": "hooks/hip4/use-recent-trades.ts",
+      "type": "registry:hook",
+      "content": "/**\n * useRecentTrades — subscribes to recent trades for a prediction market coin.\n *\n * Returns the latest trades as they happen via WebSocket.\n *\n * Usage:\n *   const { trades, isLoading } = useRecentTrades(client, coin)\n *   // or with HIP4Provider:\n *   const { trades } = useRecentTrades(coin)\n */\n\n\"use client\";\n\nimport { useState, useEffect, useRef } from \"react\";\nimport type { HIP4Client } from \"@/hooks/hip4/use-hip4-client\";\nimport { useHIP4Context } from \"@/hooks/hip4/hip4-provider\";\n\nexport interface RecentTrade {\n  /** \"B\" for buy, \"S\" for sell */\n  side: \"B\" | \"S\";\n  /** Fill price (0-1) */\n  price: number;\n  /** Number of shares */\n  size: number;\n  /** Timestamp in ms */\n  time: number;\n}\n\nexport interface UseRecentTradesResult {\n  trades: RecentTrade[];\n  isLoading: boolean;\n  error: Error | null;\n}\n\n/** Overload: explicit client + coin */\nexport function useRecentTrades(client: HIP4Client, coin: string): UseRecentTradesResult;\n/** Overload: context mode — just coin */\nexport function useRecentTrades(coin: string): UseRecentTradesResult;\nexport function useRecentTrades(\n  clientOrCoin: HIP4Client | string,\n  maybeCoin?: string,\n): UseRecentTradesResult {\n  const isContextMode = typeof clientOrCoin === \"string\";\n  const coin = isContextMode ? clientOrCoin : maybeCoin!;\n  const explicitClient = isContextMode ? undefined : (clientOrCoin as HIP4Client);\n\n  const ctxClient = useHIP4Context();\n  const resolvedClient = explicitClient ?? ctxClient;\n\n  const [trades, setTrades] = useState<RecentTrade[]>([]);\n  const [isLoading, setIsLoading] = useState(true);\n  const [error, setError] = useState<Error | null>(null);\n  const subRef = useRef<{ unsubscribe: () => void } | null>(null);\n\n  useEffect(() => {\n    if (!resolvedClient || !coin) return;\n\n    let cancelled = false;\n    setIsLoading(true);\n\n    // Fetch initial recent trades\n    resolvedClient.info\n      .recentTrades({ coin })\n      .then((data: any[]) => {\n        if (cancelled) return;\n        const parsed: RecentTrade[] = data.slice(0, 50).map((t: any) => ({\n          side: t.side as \"B\" | \"S\",\n          price: parseFloat(t.px),\n          size: parseFloat(t.sz),\n          time: t.time,\n        }));\n        setTrades(parsed);\n        setIsLoading(false);\n      })\n      .catch((err: Error) => {\n        if (!cancelled) setError(err);\n        setIsLoading(false);\n      });\n\n    // Subscribe to live trades\n    resolvedClient.sub\n      .trades({ coin }, (data: any) => {\n        if (cancelled) return;\n        const newTrades: RecentTrade[] = (data.data ?? data).map((t: any) => ({\n          side: t.side as \"B\" | \"S\",\n          price: parseFloat(t.px),\n          size: parseFloat(t.sz),\n          time: t.time,\n        }));\n        setTrades((prev) => [...newTrades, ...prev].slice(0, 50));\n      })\n      .then((sub: any) => {\n        if (!cancelled) subRef.current = sub;\n      })\n      .catch(() => {});\n\n    return () => {\n      cancelled = true;\n      subRef.current?.unsubscribe();\n      subRef.current = null;\n    };\n  }, [resolvedClient, coin]);\n\n  return { trades, isLoading, error };\n}\n"
+    }
+  ]
+}

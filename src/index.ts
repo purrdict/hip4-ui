@@ -41,6 +41,9 @@ export type { UseMarketResult } from "./hooks/use-market.js";
 export { usePortfolio } from "./hooks/use-portfolio.js";
 export type { TokenBalance, OpenOrder, Position, UsePortfolioResult } from "./hooks/use-portfolio.js";
 
+export { useRecentTrades } from "./hooks/use-recent-trades.js";
+export type { RecentTrade, UseRecentTradesResult } from "./hooks/use-recent-trades.js";
+
 // Components
 export { Countdown, CountdownTimer } from "./components/countdown.js";
 export type { CountdownProps, CountdownTimerProps } from "./components/countdown.js";
