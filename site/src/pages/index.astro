@@ -466,6 +466,10 @@ const registrySetup = `// components.json — add the hip4 registry
       <div class="flex items-center gap-5">
         <a href="#components" class="hidden text-sm text-muted-foreground hover:text-foreground transition-colors sm:block">Components</a>
         <a href="#hooks" class="hidden text-sm text-muted-foreground hover:text-foreground transition-colors sm:block">Hooks</a>
+        <!-- Mobile nav trigger -->
+        <button id="mobile-nav-btn" class="sm:hidden text-sm text-muted-foreground hover:text-foreground transition-colors" aria-label="Navigation">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
         <a href="https://github.com/purrdict/hip4-ui" class="text-sm text-muted-foreground hover:text-foreground transition-colors" target="_blank" rel="noopener">GitHub</a>
         <a href="https://x.com/hypurrdict" class="text-sm text-muted-foreground hover:text-foreground transition-colors" target="_blank" rel="noopener">@hypurrdict</a>
         <ThemeToggle />
@@ -518,6 +522,39 @@ const registrySetup = `// components.json — add the hip4 registry
     </div>
   </header>
 
+  <!-- Sidebar + Content wrapper -->
+  <div class="mx-auto max-w-6xl flex">
+    <!-- Sidebar (desktop only) -->
+    <aside class="hidden lg:block w-52 shrink-0 border-r sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto py-8 px-4">
+      <nav class="space-y-6 text-xs">
+        <div>
+          <p class="font-medium text-foreground mb-2">Components</p>
+          <ul class="space-y-1">
+            {components.map((c: any) => (
+              <li><a href={`#${c.name}`} class="text-muted-foreground hover:text-foreground transition-colors block py-0.5 truncate">{c.title || c.name}</a></li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p class="font-medium text-foreground mb-2">Hooks</p>
+          <ul class="space-y-1">
+            {hooks.map((h: any) => (
+              <li><a href={`#${h.name}`} class="text-muted-foreground hover:text-foreground transition-colors block py-0.5 truncate font-mono">{h.name}</a></li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <a href="#utilities" class="text-muted-foreground hover:text-foreground transition-colors font-medium">Utilities</a>
+        </div>
+        <div>
+          <a href="#quick-start" class="text-muted-foreground hover:text-foreground transition-colors font-medium">Quick Start</a>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 min-w-0">
+
   <!-- Components -->
   <section id="components" class="border-b">
     <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
@@ -551,18 +588,26 @@ const registrySetup = `// components.json — add the hip4 registry
                     </div>
                   )}
 
-                  <!-- Usage code -->
-                  <div class="border-b px-6 py-5">
-                    <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Usage</p>
-                    <div class="rounded-lg overflow-hidden text-sm">
-                      <Code code={meta.usage} lang="tsx" theme="github-dark" />
+                  <!-- Usage code (collapsible) -->
+                  <details class="border-b group">
+                    <summary class="px-6 py-4 cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors flex items-center gap-2 select-none">
+                      <svg class="h-3 w-3 transition-transform group-open:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                      Usage
+                    </summary>
+                    <div class="px-6 pb-5">
+                      <div class="rounded-lg overflow-hidden text-sm">
+                        <Code code={meta.usage} lang="tsx" theme="github-dark" />
+                      </div>
                     </div>
-                  </div>
+                  </details>
 
-                  <!-- Props table -->
-                  <div class="border-b px-6 py-5">
-                    <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Props</p>
-                    <div class="overflow-x-auto -mx-6 px-6">
+                  <!-- Props table (collapsible) -->
+                  <details class="border-b group">
+                    <summary class="px-6 py-4 cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors flex items-center gap-2 select-none">
+                      <svg class="h-3 w-3 transition-transform group-open:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                      Props
+                    </summary>
+                    <div class="px-6 pb-5 overflow-x-auto">
                       <table class="w-full text-sm">
                         <thead>
                           <tr class="border-b">
@@ -582,7 +627,7 @@ const registrySetup = `// components.json — add the hip4 registry
                         </tbody>
                       </table>
                     </div>
-                  </div>
+                  </details>
 
                   <!-- Install -->
                   <div class="px-6 py-4">
@@ -627,15 +672,21 @@ const registrySetup = `// components.json — add the hip4 registry
                 <p class="text-sm text-muted-foreground mb-4">{h.description}</p>
 
                 {meta && (
-                  <div class="space-y-4">
+                  <div class="space-y-3">
                     <div class="flex flex-wrap items-center gap-2 text-sm font-mono">
                       <code class="text-foreground">{meta.signature}</code>
                       <span class="text-muted-foreground">&rarr;</span>
                       <code class="text-primary">{meta.returns}</code>
                     </div>
-                    <div class="rounded-lg overflow-hidden text-sm">
-                      <Code code={meta.usage} lang="tsx" theme="github-dark" />
-                    </div>
+                    <details class="group">
+                      <summary class="cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors flex items-center gap-2 select-none">
+                        <svg class="h-3 w-3 transition-transform group-open:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                        Usage
+                      </summary>
+                      <div class="mt-3 rounded-lg overflow-hidden text-sm">
+                        <Code code={meta.usage} lang="tsx" theme="github-dark" />
+                      </div>
+                    </details>
                   </div>
                 )}
               </div>
@@ -674,7 +725,7 @@ const registrySetup = `// components.json — add the hip4 registry
   )}
 
   <!-- Quick Start -->
-  <section class="border-b">
+  <section id="quick-start" class="border-b">
     <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
       <div class="mb-10">
         <h2 class="font-display text-2xl font-medium tracking-tight mb-2">Quick Start</h2>
@@ -745,6 +796,9 @@ const registrySetup = `// components.json — add the hip4 registry
   </section>
 
   <!-- Footer -->
+    </main>
+  </div>
+
   <footer class="py-8">
     <div class="mx-auto max-w-5xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
       <span>Built by <a href="https://purrdict.xyz" class="text-foreground hover:text-primary transition-colors">Purrdict</a></span>
@@ -756,8 +810,56 @@ const registrySetup = `// components.json — add the hip4 registry
     </div>
   </footer>
 
-  <!-- Copy button script -->
+  <!-- Mobile nav overlay -->
+  <div id="mobile-nav" class="fixed inset-0 z-50 hidden">
+    <div id="mobile-nav-backdrop" class="absolute inset-0 bg-background/80 backdrop-blur-sm"></div>
+    <div class="absolute bottom-0 left-0 right-0 max-h-[70vh] overflow-y-auto rounded-t-2xl border-t bg-card p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <span class="font-display font-medium text-sm">Navigation</span>
+        <button id="mobile-nav-close" class="text-muted-foreground hover:text-foreground p-1">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="grid grid-cols-2 gap-6 text-sm">
+        <div>
+          <p class="font-medium text-foreground mb-2 text-xs uppercase tracking-wide">Components</p>
+          <ul class="space-y-2">
+            {components.map((c: any) => (
+              <li><a href={`#${c.name}`} class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors block">{c.title || c.name}</a></li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p class="font-medium text-foreground mb-2 text-xs uppercase tracking-wide">Hooks</p>
+          <ul class="space-y-2">
+            {hooks.map((h: any) => (
+              <li><a href={`#${h.name}`} class="mobile-nav-link text-muted-foreground hover:text-foreground transition-colors block font-mono text-xs">{h.name}</a></li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Copy button + mobile nav script -->
   <script>
+    // Mobile nav
+    const mobileNav = document.getElementById("mobile-nav");
+    const mobileBtn = document.getElementById("mobile-nav-btn");
+    const mobileClose = document.getElementById("mobile-nav-close");
+    const mobileBackdrop = document.getElementById("mobile-nav-backdrop");
+
+    function openMobileNav() { mobileNav?.classList.remove("hidden"); }
+    function closeMobileNav() { mobileNav?.classList.add("hidden"); }
+
+    mobileBtn?.addEventListener("click", openMobileNav);
+    mobileClose?.addEventListener("click", closeMobileNav);
+    mobileBackdrop?.addEventListener("click", closeMobileNav);
+    document.querySelectorAll(".mobile-nav-link").forEach((link) => {
+      link.addEventListener("click", closeMobileNav);
+    });
+
+    // Copy buttons
     document.querySelectorAll<HTMLButtonElement>(".copy-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const text = btn.dataset.copy || "";
