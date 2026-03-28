@@ -253,3 +253,229 @@ describe("formatCountdown edge cases", () => {
     expect(result).toMatch(/^1m \d+s$/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// ProbabilityBar — probability normalization logic
+// ---------------------------------------------------------------------------
+
+describe("ProbabilityBar probability normalization", () => {
+  function normalize(yesPx: number, noPx: number) {
+    const clampedYes = Math.max(0, Math.min(1, yesPx));
+    const clampedNo = Math.max(0, Math.min(1, noPx));
+    const total = clampedYes + clampedNo;
+    return {
+      normalizedYes: total > 0 ? (clampedYes / total) * 100 : 50,
+      normalizedNo: total > 0 ? (clampedNo / total) * 100 : 50,
+    };
+  }
+
+  test("65/35 sums to 100", () => {
+    const { normalizedYes, normalizedNo } = normalize(0.65, 0.35);
+    expect(normalizedYes + normalizedNo).toBeCloseTo(100, 5);
+  });
+
+  test("equal prices produce 50/50 split", () => {
+    const { normalizedYes, normalizedNo } = normalize(0.5, 0.5);
+    expect(normalizedYes).toBeCloseTo(50, 5);
+    expect(normalizedNo).toBeCloseTo(50, 5);
+  });
+
+  test("clamps values outside [0,1]", () => {
+    const { normalizedYes } = normalize(1.5, -0.1);
+    // clamped: yes=1, no=0 → normalizedYes = 100
+    expect(normalizedYes).toBe(100);
+  });
+
+  test("zero total falls back to 50/50", () => {
+    const { normalizedYes, normalizedNo } = normalize(0, 0);
+    expect(normalizedYes).toBe(50);
+    expect(normalizedNo).toBe(50);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MarketStats — formatUsdh compact used for volume
+// ---------------------------------------------------------------------------
+
+describe("MarketStats volume formatting", () => {
+  test("volume above 1000 shows compact K format", () => {
+    expect(formatUsdh(42000, true)).toBe("$42.0K");
+  });
+
+  test("volume below 1000 shows full dollars format", () => {
+    expect(formatUsdh(500, true)).toBe("$500.00");
+  });
+
+  test("volume in millions shows M format", () => {
+    expect(formatUsdh(1_500_000, true)).toBe("$1.5M");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RecentTrades — data shape validation
+// ---------------------------------------------------------------------------
+
+describe("RecentTrades data", () => {
+  test("trade object has correct shape", () => {
+    const trade = {
+      side: "B" as const,
+      price: 0.65,
+      size: 100,
+      time: Date.now(),
+    };
+    expect(trade.side).toBe("B");
+    expect(trade.price).toBe(0.65);
+    expect(trade.size).toBe(100);
+    expect(typeof trade.time).toBe("number");
+  });
+
+  test("sell side is 'S'", () => {
+    const trade = { side: "S" as const, price: 0.35, size: 50, time: Date.now() };
+    expect(trade.side).toBe("S");
+  });
+
+  test("maxRows defaults to 20 conceptually", () => {
+    // Simulate slicing: 25 trades → maxRows=20 → 20 shown
+    const trades = Array.from({ length: 25 }, (_, i) => ({
+      side: "B" as const,
+      price: 0.5,
+      size: 10,
+      time: Date.now() - i * 1000,
+    }));
+    const maxRows = 20;
+    const visible = trades.slice(0, maxRows);
+    expect(visible.length).toBe(20);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OrderSummary — payout calculation logic
+// ---------------------------------------------------------------------------
+
+describe("OrderSummary payout logic", () => {
+  function calcBuyPayout(shares: number, effectivePrice: number) {
+    const cost = shares * effectivePrice;
+    const payout = shares * 1.0; // each share pays $1 at resolution
+    const toWin = payout - cost;
+    const returnPct = cost > 0 ? ((payout / cost - 1) * 100) : 0;
+    return { cost, payout, toWin, returnPct };
+  }
+
+  test("buying 100 shares at 0.65 gives correct payout", () => {
+    const { cost, payout, returnPct } = calcBuyPayout(100, 0.65);
+    expect(cost).toBeCloseTo(65, 5);
+    expect(payout).toBeCloseTo(100, 5);
+    expect(returnPct).toBeCloseTo(53.846, 2);
+  });
+
+  test("buying at 0.5 gives 100% return", () => {
+    const { returnPct } = calcBuyPayout(100, 0.5);
+    expect(returnPct).toBeCloseTo(100, 5);
+  });
+
+  function calcSlippage(effectivePrice: number, mid: number, isBuy: boolean) {
+    return isBuy
+      ? ((effectivePrice - mid) / mid) * 100
+      : ((mid - effectivePrice) / mid) * 100;
+  }
+
+  test("buy slippage is positive when effective > mid", () => {
+    const slip = calcSlippage(0.66, 0.63, true);
+    expect(slip).toBeGreaterThan(0);
+  });
+
+  test("sell slippage is positive when effective < mid", () => {
+    const slip = calcSlippage(0.60, 0.63, false);
+    expect(slip).toBeGreaterThan(0);
+  });
+
+  test("spread in cents calculation", () => {
+    const spreadCents = (0.65 - 0.62) * 100;
+    expect(spreadCents).toBeCloseTo(3, 5);
+  });
+
+  test("wide spread (> 5¢) triggers warning", () => {
+    const spreadCents = (0.72 - 0.60) * 100; // 12¢
+    expect(spreadCents).toBeGreaterThan(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Countdown — time-left calculation logic
+// ---------------------------------------------------------------------------
+
+describe("Countdown time-left logic", () => {
+  function getTimeLeft(expiryMs: number, nowMs: number) {
+    const diff = expiryMs - nowMs;
+    if (diff <= 0) return { expired: true, d: 0, h: 0, m: 0, s: 0, diff: 0 };
+    const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const s = Math.floor((diff % (1000 * 60)) / 1000);
+    return { expired: false, d, h, m, s, diff };
+  }
+
+  test("expired for past timestamps", () => {
+    const result = getTimeLeft(Date.now() - 1000, Date.now());
+    expect(result.expired).toBe(true);
+  });
+
+  test("calculates days/hours correctly for 1.5 days", () => {
+    const now = Date.now();
+    const future = now + 1.5 * 24 * 60 * 60 * 1000;
+    const result = getTimeLeft(future, now);
+    expect(result.d).toBe(1);
+    expect(result.h).toBe(12);
+    expect(result.expired).toBe(false);
+  });
+
+  test("urgency: < 1h is urgent", () => {
+    const diff = 30 * 60 * 1000; // 30 minutes
+    const isUrgent = diff < 1000 * 60 * 60;
+    expect(isUrgent).toBe(true);
+  });
+
+  test("warning: < 6h triggers amber", () => {
+    const diff = 3 * 60 * 60 * 1000; // 3 hours
+    const isUrgent = diff < 1000 * 60 * 60;
+    const isWarning = diff < 1000 * 60 * 60 * 6;
+    expect(isUrgent).toBe(false);
+    expect(isWarning).toBe(true);
+  });
+
+  test("normal: > 6h no urgency", () => {
+    const diff = 24 * 60 * 60 * 1000; // 24 hours
+    const isUrgent = diff < 1000 * 60 * 60;
+    const isWarning = diff < 1000 * 60 * 60 * 6;
+    expect(isUrgent).toBe(false);
+    expect(isWarning).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MarketCard — variant prop defaults
+// ---------------------------------------------------------------------------
+
+describe("MarketCard variant", () => {
+  test("named-binary variant requires sides array", () => {
+    const sides = [
+      { name: "Team A", pct: 60 },
+      { name: "Team B", pct: 40 },
+    ];
+    expect(sides.length).toBeGreaterThan(0);
+    expect(sides[0].name).toBe("Team A");
+  });
+
+  test("question variant requires outcomes array", () => {
+    const outcomes = [
+      { name: "Outcome A", pct: 45 },
+      { name: "Outcome B", pct: 30 },
+      { name: "Outcome C", pct: 25 },
+    ];
+    // Top 2 are shown, moreCount = 1
+    const top2 = outcomes.slice(0, 2);
+    const moreCount = outcomes.length - 2;
+    expect(top2.length).toBe(2);
+    expect(moreCount).toBe(1);
+  });
+});

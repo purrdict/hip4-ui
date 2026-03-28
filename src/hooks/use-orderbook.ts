@@ -34,6 +34,22 @@ export interface UseOrderbookResult {
  * @param client  HIP4Client from useHIP4Client()
  * @param coin    Coin name — e.g. "#9860" for a prediction market yes coin
  */
+/**
+ * Subscribe to the L2 orderbook for a specific coin.
+ *
+ * @param client  HIP4Client from useHIP4Client()
+ * @param coin    Coin name — e.g. "#9860" for a prediction market yes coin
+ *
+ * Performance note: This hook calls `setState` on every book tick (typically
+ * every 500ms). For a visually rendered orderbook that's perfectly fine —
+ * the component needs to repaint on every update anyway.
+ *
+ * If you embed this in a parent that doesn't render the book itself (e.g. a
+ * container that reads `midPrice` to position a chart), consider using a
+ * `useRef` for the raw `bids`/`asks` data and a version counter for
+ * triggering renders, so downstream components only rerender when the derived
+ * value they care about actually changes.
+ */
 export function useOrderbook(
   client: HIP4Client,
   coin: string,

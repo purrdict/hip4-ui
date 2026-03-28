@@ -10,7 +10,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   discoverMarkets,
   fetchOutcomeMeta,
@@ -86,5 +86,10 @@ export function useMarkets(client: HIP4Client): UseMarketsResult {
     };
   }, [client]);
 
-  return { markets, mids, isLoading, error };
+  // Stable markets reference — prevents downstream rerenders when the
+  // markets array contents haven't actually changed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableMarkets = useMemo(() => markets, [JSON.stringify(markets)]);
+
+  return { markets: stableMarkets, mids, isLoading, error };
 }

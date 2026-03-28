@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { getBalances, fetchOpenOrders } from "@purrdict/hip4";
 import type { HIP4Client, TokenBalance, OpenOrder } from "@purrdict/hip4";
 
@@ -103,7 +103,14 @@ export function usePortfolio(
     };
   }, [client, address, refreshToken]);
 
-  const refresh = () => setRefreshToken((t) => t + 1);
+  // Stable refresh callback — prevents callers from needing to suppress
+  // the dependency in their own useEffect/useCallback hooks.
+  const refresh = useCallback(() => setRefreshToken((t) => t + 1), []);
 
-  return { usdh, positions, openOrders, isLoading, error, refresh };
+  // Stable return object — prevents rerender cascades in consumers that
+  // destructure the result and use it as an effect dependency.
+  return useMemo(
+    () => ({ usdh, positions, openOrders, isLoading, error, refresh }),
+    [usdh, positions, openOrders, isLoading, error, refresh],
+  );
 }

@@ -35,30 +35,41 @@ export type { UseMinSharesResult } from "./hooks/use-min-shares.js";
 export { usePortfolio } from "./hooks/use-portfolio.js";
 export type { Position, UsePortfolioResult } from "./hooks/use-portfolio.js";
 
-export { useSettlement } from "./hooks/use-settlement.js";
-export type { SettlementResult, UseSettlementResult } from "./hooks/use-settlement.js";
-
 // Components
-export { CountdownTimer } from "./components/countdown-timer.js";
-export type { CountdownTimerProps } from "./components/countdown-timer.js";
+export { Countdown, CountdownTimer } from "./components/countdown.js";
+export type { CountdownProps, CountdownTimerProps } from "./components/countdown.js";
 
 export { MarketCard } from "./components/market-card.js";
-export type { MarketCardProps } from "./components/market-card.js";
-
-export { MarketGrid } from "./components/market-grid.js";
-export type { MarketGridProps, MarketFilter } from "./components/market-grid.js";
+export type {
+  MarketCardProps,
+  MarketVariant,
+  NamedSide,
+  Outcome,
+} from "./components/market-card.js";
 
 export { Orderbook } from "./components/orderbook.js";
 export type { OrderbookProps } from "./components/orderbook.js";
 
-export { TradeForm } from "./components/trade-form.js";
-export type { TradeFormProps, TradeSide, OrderMode, BuilderConfig } from "./components/trade-form.js";
-
-export { SettlementBanner } from "./components/settlement-banner.js";
-export type { SettlementBannerProps } from "./components/settlement-banner.js";
+export { TradeForm, OrderSummary } from "./components/trade-form.js";
+export type {
+  TradeFormProps,
+  OrderSummaryProps,
+  TradeSide,
+  OrderMode,
+  BuilderConfig,
+} from "./components/trade-form.js";
 
 export { PositionCard } from "./components/position-card.js";
 export type { PositionCardProps } from "./components/position-card.js";
+
+export { ProbabilityBar } from "./components/probability-bar.js";
+export type { ProbabilityBarProps } from "./components/probability-bar.js";
+
+export { MarketStats } from "./components/market-stats.js";
+export type { MarketStatsProps } from "./components/market-stats.js";
+
+export { RecentTrades } from "./components/recent-trades.js";
+export type { RecentTradesProps, Trade } from "./components/recent-trades.js";
 
 // Formatting utilities
 export {

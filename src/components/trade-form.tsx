@@ -8,6 +8,8 @@
  *   - Market (FrontendMarket) vs limit (Gtc/Alo) order modes
  *   - Builder fee attachment
  *
+ * Also exports OrderSummary — a standalone payout/spread/slippage summary block.
+ *
  * Usage:
  *   <TradeForm
  *     market={market}
@@ -15,6 +17,18 @@
  *     currentPrice={0.55}
  *     minShares={20}
  *     onTrade={async (params) => await buy(params)}
+ *   />
+ *
+ *   <OrderSummary
+ *     isBuy={true}
+ *     shares={100}
+ *     cost={65}
+ *     effectivePrice={0.65}
+ *     mid={0.63}
+ *     bestBid={0.62}
+ *     bestAsk={0.65}
+ *     mode="market"
+ *     sideName="Yes"
  *   />
  */
 
@@ -28,6 +42,172 @@ import { formatMidPrice, formatUsdh } from "../lib/format.js";
 
 export type TradeSide = "Yes" | "No";
 export type OrderMode = "market" | "limit";
+
+// ─── Format helpers (internal) ───────────────────────────────────────────────
+
+function fmtUsd(n: number): string {
+  if (n >= 1000) return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `$${n.toFixed(2)}`;
+}
+
+function fmtCents(price: number): string {
+  const c = price * 100;
+  if (c < 0.1) return `${c.toFixed(3)}¢`;
+  if (c < 1) return `${c.toFixed(2)}¢`;
+  return `${c.toFixed(1)}¢`;
+}
+
+// ─── OrderSummary ─────────────────────────────────────────────────────────────
+
+export interface OrderSummaryProps {
+  /** true = buy order, false = sell order */
+  isBuy: boolean;
+  /** Number of shares in the order */
+  shares: number;
+  /** Total cost (buy) or expected proceeds (sell) in USDH */
+  cost: number;
+  /** Effective fill price (0–1) */
+  effectivePrice: number;
+  /** Current mid price (0–1) — used for slippage calculation */
+  mid: number | null;
+  /** Best bid price (0–1) */
+  bestBid: number | null;
+  /** Best ask price (0–1) */
+  bestAsk: number | null;
+  /** Order mode — affects which rows are shown */
+  mode: OrderMode;
+  /** Human-readable side name (e.g. "Yes", "Up") */
+  sideName: string;
+  /** Additional CSS classes */
+  className?: string;
+}
+
+/**
+ * Order summary block showing payout, profit %, spread, and slippage.
+ *
+ * Slides in with a fade animation when rendered. Highlights wide spreads
+ * (>5¢) and high slippage (>3%) in amber.
+ *
+ * Example:
+ * ```tsx
+ * <OrderSummary
+ *   isBuy={true}
+ *   shares={100}
+ *   cost={65}
+ *   effectivePrice={0.65}
+ *   mid={0.63}
+ *   bestBid={0.62}
+ *   bestAsk={0.65}
+ *   mode="market"
+ *   sideName="Yes"
+ * />
+ * ```
+ */
+export function OrderSummary({
+  isBuy,
+  shares,
+  cost,
+  effectivePrice,
+  mid,
+  bestBid,
+  bestAsk,
+  mode,
+  sideName,
+  className = "",
+}: OrderSummaryProps) {
+  if (shares <= 0 || effectivePrice <= 0) return null;
+
+  const payout = isBuy ? shares * 1.0 : 0; // if wins, each share pays $1
+  const proceeds = !isBuy ? shares * effectivePrice : 0;
+  const toWin = isBuy ? payout - cost : proceeds;
+  const returnPct = isBuy && cost > 0 ? ((payout / cost - 1) * 100) : 0;
+
+  const slippagePct =
+    mid && mid > 0
+      ? isBuy
+        ? ((effectivePrice - mid) / mid) * 100
+        : ((mid - effectivePrice) / mid) * 100
+      : 0;
+
+  const spreadCents =
+    bestBid !== null && bestAsk !== null ? (bestAsk - bestBid) * 100 : null;
+
+  return (
+    <div
+      className={[
+        "border-t border-border/50 pt-3 space-y-2",
+        "animate-in fade-in slide-in-from-bottom-2 duration-200",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {/* Primary result row */}
+      <div className="flex items-baseline justify-between">
+        <span className="text-xs text-muted-foreground">
+          {isBuy ? "Payout if wins" : "Est. proceeds"}
+        </span>
+        <span className="text-xl font-bold tabular-nums text-green-500">
+          {fmtUsd(isBuy ? payout : proceeds)}
+        </span>
+      </div>
+
+      {/* Detail rows */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between text-[11px] tabular-nums">
+          <span className="text-muted-foreground">Shares</span>
+          <span>{Math.floor(shares)} {sideName}</span>
+        </div>
+
+        <div className="flex items-center justify-between text-[11px] tabular-nums">
+          <span className="text-muted-foreground">
+            {mode === "market" ? "Est. avg price" : "Limit price"}
+          </span>
+          <span>{fmtCents(effectivePrice)}</span>
+        </div>
+
+        {isBuy && returnPct > 0 && (
+          <div className="flex items-center justify-between text-[11px] tabular-nums">
+            <span className="text-muted-foreground">Profit if wins</span>
+            <span className="text-green-500">
+              +{fmtUsd(toWin)} ({returnPct.toFixed(0)}%)
+            </span>
+          </div>
+        )}
+
+        {/* Spread + slippage — market orders only */}
+        {mode === "market" && (
+          <>
+            {spreadCents !== null && spreadCents > 0 && (
+              <div className="flex items-center justify-between text-[11px] tabular-nums">
+                <span className="text-muted-foreground">Spread</span>
+                <span
+                  className={
+                    spreadCents > 5 ? "text-amber-500" : "text-muted-foreground"
+                  }
+                >
+                  {spreadCents.toFixed(1)}¢{spreadCents > 5 ? " (wide)" : ""}
+                </span>
+              </div>
+            )}
+            {Math.abs(slippagePct) > 0.1 && (
+              <div className="flex items-center justify-between text-[11px] tabular-nums">
+                <span className="text-muted-foreground">Slippage vs mid</span>
+                <span
+                  className={
+                    slippagePct > 3 ? "text-amber-500" : "text-muted-foreground"
+                  }
+                >
+                  ~{Math.abs(slippagePct).toFixed(1)}%
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export interface BuilderConfig {
   address: string;
