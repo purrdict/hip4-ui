@@ -50,7 +50,10 @@
       "type": "registry:ui",
       "title": "Recent Trades",
       "description": "Scrollable trade feed with color-coded buy/sell sides and monospace prices. Feed with useRecentTrades(coin) which returns { trades }. Key props: trades (Trade[] with side, price, size, time), maxRows? (number, default 50). Pure presentation — no data fetching.",
-      "dependencies": []
+      "dependencies": [],
+      "registryDependencies": [
+        "https://ui.purrdict.xyz/r/use-recent-trades.json"
+      ]
     },
     {
       "name": "trade-form",

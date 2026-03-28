@@ -357,6 +357,7 @@ const items: RegistryItem[] = [
       "Scrollable trade feed with color-coded buy/sell sides and monospace prices. Feed with useRecentTrades(coin) which returns { trades }. Key props: trades (Trade[] with side, price, size, time), maxRows? (number, default 50). Pure presentation — no data fetching.",
     author: AUTHOR,
     dependencies: [],
+    registryDependencies: [`${BASE_URL}/use-recent-trades.json`],
     files: [
       {
         path: "components/hip4/recent-trades.tsx",
