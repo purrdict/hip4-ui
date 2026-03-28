@@ -329,6 +329,66 @@ await buy({
   market.yesCoin
 )`,
   },
+  "hip4-provider": {
+    signature: "<HIP4Provider testnet={boolean}>",
+    returns: "React.ReactElement",
+    usage: `// Wrap your app once — all hooks auto-resolve client
+import { HIP4Provider } from "@/hooks/hip4/hip4-provider"
+
+<HIP4Provider testnet={true}>
+  <App />
+</HIP4Provider>
+
+// Then in any component:
+const { markets } = useMarkets()  // no client arg needed
+const { bids } = useOrderbook(market.yesCoin)`,
+  },
+  "use-market": {
+    signature: "useMarket(market: Market)",
+    returns: "{ yesMid, noMid, minShares, isLoading }",
+    usage: `import { useMarket } from "@/hooks/hip4/use-market"
+
+// Per-market subscription — ONLY rerenders when THIS market changes
+function MarketRow({ market }: { market: Market }) {
+  const { yesMid, noMid, minShares } = useMarket(market)
+  return <MarketCard market={market} yesMid={yesMid} />
+}`,
+  },
+  "use-recent-trades": {
+    signature: "useRecentTrades(coin: string)",
+    returns: "{ trades, isLoading, error }",
+    usage: `import { useRecentTrades } from "@/hooks/hip4/use-recent-trades"
+
+const { trades } = useRecentTrades(market.yesCoin)
+<RecentTrades trades={trades} />`,
+  },
+  "use-underlying-price": {
+    signature: "useUnderlyingPrice(symbol: string, opts?)",
+    returns: "{ prices, currentPrice, isLoading }",
+    usage: `import { useUnderlyingPrice } from "@/hooks/hip4/use-underlying-price"
+
+// Feeds LivePriceChart with underlying asset perp price
+const { prices, currentPrice } = useUnderlyingPrice("BTC", {
+  historyMinutes: 60,
+})
+
+<LivePriceChart
+  symbol="BTC"
+  prices={prices}
+  currentPrice={currentPrice}
+  targetPrice={market.targetPrice}
+/>`,
+  },
+  "use-probability-history": {
+    signature: "useProbabilityHistory(markets: Market[])",
+    returns: "{ series, isLoading, error }",
+    usage: `import { useProbabilityHistory } from "@/hooks/hip4/use-probability-history"
+
+// Multi-outcome question markets (3+ outcomes)
+const { series, isLoading } = useProbabilityHistory(questionMarkets)
+
+<ProbabilityChart series={series} height={220} />`,
+  },
 };
 
 const quickStartCode = `import { MarketCard } from "@/components/hip4/market-card"
