@@ -28,7 +28,6 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  PopoverPortal,
 } from "./popover.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -355,7 +354,6 @@ export function RoundsTimeline({
               </svg>
             </button>
           </PopoverTrigger>
-          <PopoverPortal>
           <PopoverContent
             side="bottom"
             align="start"
@@ -382,7 +380,6 @@ export function RoundsTimeline({
               );
             })}
           </PopoverContent>
-          </PopoverPortal>
         </Popover>
       )}
 
