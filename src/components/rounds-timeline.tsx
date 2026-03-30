@@ -1,7 +1,7 @@
 /**
  * RoundsTimeline — Polymarket-style bottom bar for navigating recurring market rounds.
  *
- * Shows inline tabs for recent rounds with result indicators (▲ above / ▼ below),
+ * Shows inline tabs for recent rounds with result indicators (circled ▲/▼),
  * a "Past" popover dropdown grouped by date for older rounds, and a streak strip
  * showing the last N results at a glance.
  *
@@ -64,7 +64,6 @@ export interface RoundsTimelineProps {
 
 function parseDate(raw: string): Date | null {
   try {
-    // Handle ClickHouse UTC format "YYYY-MM-DD HH:MM:SS"
     const normalized = raw.includes("T") ? raw : raw.replace(" ", "T") + "Z";
     const d = new Date(normalized);
     return isNaN(d.getTime()) ? null : d;
@@ -84,128 +83,92 @@ function isShortPeriod(period: string): boolean {
 function formatTabLabel(expiry: string, period: string): string {
   const d = parseDate(expiry);
   if (!d) return expiry;
-
   if (isShortPeriod(period)) {
-    // Short period: time only — "7:00 AM"
-    return d.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
   }
-
-  // Daily/weekly: date only — "Mar 28"
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function formatDropdownLabel(expiry: string, period: string): string {
+function formatDropdownLabel(expiry: string, period: string): { time: string; relative: string } {
   const d = parseDate(expiry);
-  if (!d) return expiry;
+  if (!d) return { time: expiry, relative: "" };
 
   const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  let relative: string;
-  if (diffDays === 0) relative = "Today";
-  else if (diffDays === 1) relative = "Yesterday";
-  else relative = `${diffDays}d ago`;
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  const relative = diffDays === 0 ? "Today" : diffDays === 1 ? "Yesterday" : `${diffDays}d ago`;
 
   if (isShortPeriod(period)) {
     const time = d.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-      timeZoneName: "short",
+      hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short",
     });
-    return `${time} · ${relative}`;
+    return { time, relative };
   }
-
   const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return `${date} · ${relative}`;
-}
-
-function getDateGroupKey(expiry: string): string {
-  const d = parseDate(expiry);
-  if (!d) return "Unknown";
-
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: now.getFullYear() !== d.getFullYear() ? "numeric" : undefined,
-  });
+  return { time: date, relative };
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function ResultIndicator({
+/** Circled arrow indicator — green circle + white ▲ or red circle + white ▼ */
+function ResultBadge({
   result,
-  size = "sm",
+  className = "",
 }: {
   result: "above" | "below" | null;
-  size?: "sm" | "md";
+  className?: string;
 }) {
-  const dim = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
-
   if (result === null) {
     return (
-      <span
-        className={`inline-flex items-center justify-center ${dim}`}
-        aria-label="Live"
-      >
-        <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+      <span className={`relative flex items-center justify-center w-5 h-5 ${className}`} aria-label="Live">
+        <span className="absolute h-full w-full rounded-full bg-destructive/20 animate-ping" />
+        <span className="relative w-2.5 h-2.5 rounded-full bg-destructive" />
       </span>
     );
   }
 
-  if (result === "above") {
-    return (
-      <span
-        className={`inline-flex items-center justify-center ${dim} text-success`}
-        aria-label="Above"
-      >
-        <svg
-          viewBox="0 0 12 12"
-          fill="currentColor"
-          className="h-full w-full"
-        >
-          <path d="M6 1.5 L10.5 9 L1.5 9 Z" />
-        </svg>
-      </span>
-    );
-  }
+  const bg = result === "above" ? "bg-success" : "bg-destructive";
+  const arrowD = result === "above"
+    ? "M6 3 L10 8.5 L2 8.5 Z"
+    : "M6 9 L2 3.5 L10 3.5 Z";
 
   return (
     <span
-      className={`inline-flex items-center justify-center ${dim} text-destructive`}
-      aria-label="Below"
+      className={`inline-flex items-center justify-center rounded-full w-5 h-5 ${bg} shrink-0 ${className}`}
+      aria-label={result === "above" ? "Above" : "Below"}
     >
-      <svg
-        viewBox="0 0 12 12"
-        fill="currentColor"
-        className="h-full w-full"
-      >
-        <path d="M6 10.5 L1.5 3 L10.5 3 Z" />
+      <svg viewBox="0 0 12 12" fill="white" className="w-2.5 h-2.5">
+        <path d={arrowD} />
       </svg>
     </span>
   );
 }
 
-function StreakStrip({ rounds }: { rounds: Round[] }) {
+function StreakStrip({
+  rounds,
+  period,
+  onRoundSelect,
+}: {
+  rounds: Round[];
+  period: string;
+  onRoundSelect: (round: Round) => void;
+}) {
   const settled = rounds.filter((r) => r.result !== null).slice(0, 4);
   if (settled.length === 0) return null;
-
   return (
-    <div className="flex items-center gap-0.5" aria-label="Recent results">
+    <div className="flex items-center gap-1 group/streak" aria-label="Recent results">
       {settled.map((r) => (
-        <ResultIndicator key={r.id} result={r.result} size="sm" />
+        <button
+          key={r.id}
+          onClick={() => onRoundSelect(r)}
+          className="relative transition-opacity group-hover/streak:opacity-40 hover:!opacity-100 group/badge"
+          title={formatTabLabel(r.expiry, period)}
+        >
+          <ResultBadge result={r.result} />
+          {/* Tooltip */}
+          <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-popover border border-border px-2 py-1 text-[11px] font-medium tabular-nums text-popover-foreground whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity shadow-sm">
+            {formatTabLabel(r.expiry, period)}
+          </span>
+        </button>
       ))}
     </div>
   );
@@ -213,26 +176,6 @@ function StreakStrip({ rounds }: { rounds: Round[] }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-/**
- * Polymarket-style rounds timeline bar.
- *
- * Displays inline tabs for the most recent rounds with result indicators,
- * and a "Past" popover for navigating older rounds grouped by date.
- *
- * Example:
- * ```tsx
- * <RoundsTimeline
- *   rounds={[
- *     { id: 1, expiry: "2026-03-30T09:30:00Z", result: "above", targetPrice: 67000, settlePrice: 67500 },
- *     { id: 2, expiry: "2026-03-29T09:30:00Z", result: "below", targetPrice: 68000, settlePrice: 66000 },
- *   ]}
- *   activeRoundId={1}
- *   onRoundSelect={(round) => console.log("Selected:", round)}
- *   period="1d"
- *   underlying="BTC"
- * />
- * ```
- */
 export function RoundsTimeline({
   rounds,
   activeRoundId,
@@ -244,45 +187,21 @@ export function RoundsTimeline({
 }: RoundsTimelineProps) {
   const [pastOpen, setPastOpen] = useState(false);
 
-  // Split rounds into visible tabs and overflow (Past dropdown)
   const { tabs, overflow } = useMemo(() => {
     const sorted = [...rounds].sort((a, b) => {
       const dateA = parseDate(a.expiry)?.getTime() ?? 0;
       const dateB = parseDate(b.expiry)?.getTime() ?? 0;
       return dateB - dateA;
     });
-
-    return {
-      tabs: sorted.slice(0, visibleCount),
-      overflow: sorted.slice(visibleCount),
-    };
+    return { tabs: sorted.slice(0, visibleCount), overflow: sorted.slice(visibleCount) };
   }, [rounds, visibleCount]);
-
-  // Group overflow rounds by date for the dropdown
-  const groupedOverflow = useMemo(() => {
-    const groups: { label: string; rounds: Round[] }[] = [];
-    let currentLabel = "";
-
-    for (const round of overflow) {
-      const label = getDateGroupKey(round.expiry);
-      if (label !== currentLabel) {
-        groups.push({ label, rounds: [] });
-        currentLabel = label;
-      }
-      groups[groups.length - 1].rounds.push(round);
-    }
-
-    return groups;
-  }, [overflow]);
 
   return (
     <div
       className={[
-        "flex items-center gap-1.5 rounded-xl border border-border/60 bg-card/95 backdrop-blur-sm px-2 py-1.5",
+        "flex items-center gap-2 rounded-full bg-card border border-border/50 px-2 py-1.5",
         className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      ].filter(Boolean).join(" ")}
       role="navigation"
       aria-label="Rounds timeline"
     >
@@ -291,73 +210,51 @@ export function RoundsTimeline({
         <Popover open={pastOpen} onOpenChange={setPastOpen}>
           <PopoverTrigger asChild>
             <button
-              className={[
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                pastOpen
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
-              ].join(" ")}
-              aria-label={`Past rounds (${overflow.length})`}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors border border-border/60 hover:bg-secondary/60 text-foreground"
             >
-              <span>Past</span>
+              Past
               <svg
-                className={`h-3 w-3 transition-transform ${pastOpen ? "rotate-180" : ""}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2.5}
-                stroke="currentColor"
+                className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${pastOpen ? "rotate-180" : ""}`}
+                fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="m19.5 8.25-7.5 7.5-7.5-7.5"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
               </svg>
             </button>
           </PopoverTrigger>
-
           <PopoverContent
             side="bottom"
             align="start"
             sideOffset={8}
-            className="w-56 max-h-80 overflow-y-auto p-1.5"
+            className="w-64 max-h-80 overflow-y-auto p-2"
           >
-            {groupedOverflow.map((group) => (
-              <div key={group.label}>
-                <div className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {group.label}
-                </div>
-                {group.rounds.map((round) => (
-                  <button
-                    key={round.id}
-                    onClick={() => {
-                      onRoundSelect(round);
-                      setPastOpen(false);
-                    }}
-                    className={[
-                      "flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-sm transition-colors",
-                      round.id === activeRoundId
-                        ? "bg-secondary text-foreground"
-                        : "text-foreground/80 hover:bg-secondary/60",
-                    ].join(" ")}
-                  >
-                    <ResultIndicator result={round.result} size="md" />
-                    <span className="tabular-nums">
-                      {formatDropdownLabel(round.expiry, period)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ))}
+            {overflow.map((round) => {
+              const { time, relative } = formatDropdownLabel(round.expiry, period);
+              return (
+                <button
+                  key={round.id}
+                  onClick={() => { onRoundSelect(round); setPastOpen(false); }}
+                  className={[
+                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-left transition-colors",
+                    round.id === activeRoundId
+                      ? "bg-secondary"
+                      : "hover:bg-secondary/60",
+                  ].join(" ")}
+                >
+                  <ResultBadge result={round.result} />
+                  <span className="text-sm font-medium tabular-nums">{time}</span>
+                  <span className="text-sm text-muted-foreground">· {relative}</span>
+                </button>
+              );
+            })}
           </PopoverContent>
         </Popover>
       )}
 
-      {/* Streak strip — last 4 results at a glance */}
+      {/* Streak strip */}
       {overflow.length > 0 && (
         <>
-          <StreakStrip rounds={overflow} />
-          <div className="w-px h-5 bg-border/60" aria-hidden />
+          <div className="w-px h-6 bg-border/50" aria-hidden />
+          <StreakStrip rounds={overflow} period={period} onRoundSelect={onRoundSelect} />
         </>
       )}
 
@@ -372,22 +269,20 @@ export function RoundsTimeline({
               key={round.id}
               onClick={() => onRoundSelect(round)}
               className={[
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
+                "flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
                 isActive
-                  ? "bg-foreground text-background"
+                  ? "bg-foreground text-background shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
               ].join(" ")}
               aria-current={isActive ? "true" : undefined}
-              aria-label={`${isLive ? "Live" : round.result === "above" ? "Above" : "Below"} — ${formatTabLabel(round.expiry, period)}`}
             >
-              {isLive ? (
-                <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
-              ) : (
-                <ResultIndicator result={round.result} size="sm" />
+              {isLive && (
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive" />
+                </span>
               )}
-              <span className="tabular-nums">
-                {formatTabLabel(round.expiry, period)}
-              </span>
+              <span className="tabular-nums">{formatTabLabel(round.expiry, period)}</span>
             </button>
           );
         })}
@@ -396,11 +291,11 @@ export function RoundsTimeline({
       {/* Underlying asset icon */}
       {underlying && (
         <>
-          <div className="w-px h-5 bg-border/60 ml-auto" aria-hidden />
+          <div className="w-px h-6 bg-border/50 ml-auto" aria-hidden />
           <img
             src={`https://app.hyperliquid.xyz/coins/${underlying}.svg`}
             alt={underlying}
-            className="h-6 w-6 rounded-full bg-secondary/60 shrink-0"
+            className="h-7 w-7 rounded-full bg-secondary/60 shrink-0"
           />
         </>
       )}
