@@ -43,7 +43,7 @@ function readSrc(path: string): string {
   content = content.replace(/from ["']\.\.\/hooks\/([\w-]+)\.js["']/g, 'from "@/hooks/hip4/$1"');
 
   // component-to-component imports
-  content = content.replace(/from ["']\.\/(countdown|market-card|orderbook|trade-form|position-card|probability-bar|probability-chart|market-stats|recent-trades|live-price-chart)\.js["']/g, 'from "@/components/hip4/$1"');
+  content = content.replace(/from ["']\.\/(countdown|market-card|orderbook|trade-form|position-card|probability-bar|probability-chart|market-stats|recent-trades|live-price-chart|rounds-timeline)\.js["']/g, 'from "@/components/hip4/$1"');
 
   return content;
 }
@@ -81,6 +81,7 @@ const marketStatsContent = readSrc("components/market-stats.tsx");
 const recentTradesContent = readSrc("components/recent-trades.tsx");
 const livePriceChartContent = readSrc("components/live-price-chart.tsx");
 const probabilityChartContent = readSrc("components/probability-chart.tsx");
+const roundsTimelineContent = readSrc("components/rounds-timeline.tsx");
 const useHip4ClientContent = readSrc("hooks/use-hip4-client.ts");
 const useHip4SignerContent = readSrc("hooks/use-hip4-signer.ts");
 const useMarketsContent = readSrc("hooks/use-markets.ts");
@@ -504,6 +505,25 @@ const items: RegistryItem[] = [
     ],
   },
 
+  {
+    $schema: SCHEMA,
+    name: "rounds-timeline",
+    type: "registry:ui",
+    title: "Rounds Timeline",
+    description:
+      'Polymarket-style bottom bar for navigating recurring market rounds. Shows inline tabs with result indicators (▲ above / ▼ below), a "Past" popover dropdown grouped by date, and a streak strip. Pure presentation — pass rounds data directly. Key props: rounds (Round[]), activeRoundId (number), onRoundSelect (callback), period ("15m"|"1d"), underlying? (string), visibleCount? (number, default 5).',
+    author: AUTHOR,
+    dependencies: ["@radix-ui/react-popover"],
+    files: [
+      {
+        path: "components/hip4/rounds-timeline.tsx",
+        type: "registry:ui",
+        target: "components/hip4/rounds-timeline.tsx",
+        content: roundsTimelineContent,
+      },
+    ],
+  },
+
   // Hooks
   {
     $schema: SCHEMA,
@@ -759,6 +779,7 @@ const items: RegistryItem[] = [
       `${BASE_URL}/use-probability-history.json`,
       `${BASE_URL}/use-hip4-signer.json`,
       `${BASE_URL}/hip4-format.json`,
+      `${BASE_URL}/rounds-timeline.json`,
     ],
     files: [
       {

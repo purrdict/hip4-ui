@@ -417,6 +417,62 @@ import type { Trade } from "@/components/hip4/recent-trades"
   maxRows={15}
 />`,
   },
+  "rounds-timeline": {
+    props: [
+      {
+        name: "rounds",
+        type: "Round[]",
+        desc: "All rounds sorted by expiry desc. Each: { id, expiry, result, settlePrice?, targetPrice }",
+      },
+      {
+        name: "activeRoundId",
+        type: "number",
+        desc: "ID of the currently viewed round",
+      },
+      {
+        name: "onRoundSelect",
+        type: "(round: Round) => void",
+        desc: "Called when a round tab or dropdown item is clicked",
+      },
+      {
+        name: "period",
+        type: "string",
+        desc: '"15m" = time labels, "1d" = date labels',
+      },
+      {
+        name: "underlying",
+        type: "string",
+        desc: 'Optional asset symbol for icon (e.g. "BTC", "HYPE")',
+      },
+      {
+        name: "visibleCount",
+        type: "number",
+        desc: "Inline tabs before overflow into Past dropdown. Default: 5",
+      },
+      {
+        name: "className",
+        type: "string",
+        desc: "Additional Tailwind classes (e.g. sticky positioning)",
+      },
+    ],
+    usage: `import { RoundsTimeline } from "@/components/hip4/rounds-timeline"
+import type { Round } from "@/components/hip4/rounds-timeline"
+
+const rounds: Round[] = [
+  { id: 1, expiry: "2026-03-30T09:30:00Z", result: "above", targetPrice: 67000, settlePrice: 67500 },
+  { id: 2, expiry: "2026-03-29T09:30:00Z", result: "below", targetPrice: 68000, settlePrice: 66000 },
+  { id: 3, expiry: "2026-03-28T09:30:00Z", result: null, targetPrice: 66500 },
+]
+
+<RoundsTimeline
+  rounds={rounds}
+  activeRoundId={3}
+  onRoundSelect={(round) => router.push(\`/market/\${round.id}\`)}
+  period="1d"
+  underlying="BTC"
+  className="sticky bottom-0"
+/>`,
+  },
 };
 
 // Hook metadata
