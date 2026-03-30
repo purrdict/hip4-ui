@@ -30,7 +30,8 @@
     "https://ui.purrdict.xyz/r/probability-chart.json",
     "https://ui.purrdict.xyz/r/use-probability-history.json",
     "https://ui.purrdict.xyz/r/use-hip4-signer.json",
-    "https://ui.purrdict.xyz/r/hip4-format.json"
+    "https://ui.purrdict.xyz/r/hip4-format.json",
+    "https://ui.purrdict.xyz/r/rounds-timeline.json"
   ],
   "files": [
     {

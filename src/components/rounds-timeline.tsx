@@ -16,13 +16,17 @@
  *     underlying="BTC"
  *   />
  *
- * Dependencies: @radix-ui/react-popover (shadcn Popover)
+ * registryDependencies: ["popover"] — uses the consumer's shadcn Popover
  */
 
 "use client";
 
 import { useState, useMemo } from "react";
-import * as Popover from "@radix-ui/react-popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -195,7 +199,6 @@ function ResultIndicator({
 }
 
 function StreakStrip({ rounds }: { rounds: Round[] }) {
-  // Show last 4 settled results as colored indicators
   const settled = rounds.filter((r) => r.result !== null).slice(0, 4);
   if (settled.length === 0) return null;
 
@@ -243,7 +246,6 @@ export function RoundsTimeline({
 
   // Split rounds into visible tabs and overflow (Past dropdown)
   const { tabs, overflow } = useMemo(() => {
-    // Sort by expiry descending (newest first)
     const sorted = [...rounds].sort((a, b) => {
       const dateA = parseDate(a.expiry)?.getTime() ?? 0;
       const dateB = parseDate(b.expiry)?.getTime() ?? 0;
@@ -286,8 +288,8 @@ export function RoundsTimeline({
     >
       {/* Past button + dropdown */}
       {overflow.length > 0 && (
-        <Popover.Root open={pastOpen} onOpenChange={setPastOpen}>
-          <Popover.Trigger asChild>
+        <Popover open={pastOpen} onOpenChange={setPastOpen}>
+          <PopoverTrigger asChild>
             <button
               className={[
                 "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
@@ -312,47 +314,43 @@ export function RoundsTimeline({
                 />
               </svg>
             </button>
-          </Popover.Trigger>
+          </PopoverTrigger>
 
-          <Popover.Portal>
-            <Popover.Content
-              side="top"
-              align="start"
-              sideOffset={8}
-              className="z-50 w-56 max-h-80 overflow-y-auto rounded-xl border border-border bg-card shadow-lg animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2"
-            >
-              <div className="p-1.5">
-                {groupedOverflow.map((group) => (
-                  <div key={group.label}>
-                    <div className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      {group.label}
-                    </div>
-                    {group.rounds.map((round) => (
-                      <button
-                        key={round.id}
-                        onClick={() => {
-                          onRoundSelect(round);
-                          setPastOpen(false);
-                        }}
-                        className={[
-                          "flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-sm transition-colors",
-                          round.id === activeRoundId
-                            ? "bg-secondary text-foreground"
-                            : "text-foreground/80 hover:bg-secondary/60",
-                        ].join(" ")}
-                      >
-                        <ResultIndicator result={round.result} size="md" />
-                        <span className="tabular-nums">
-                          {formatDropdownLabel(round.expiry, period)}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+          <PopoverContent
+            side="top"
+            align="start"
+            sideOffset={8}
+            className="w-56 max-h-80 overflow-y-auto p-1.5"
+          >
+            {groupedOverflow.map((group) => (
+              <div key={group.label}>
+                <div className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {group.label}
+                </div>
+                {group.rounds.map((round) => (
+                  <button
+                    key={round.id}
+                    onClick={() => {
+                      onRoundSelect(round);
+                      setPastOpen(false);
+                    }}
+                    className={[
+                      "flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-sm transition-colors",
+                      round.id === activeRoundId
+                        ? "bg-secondary text-foreground"
+                        : "text-foreground/80 hover:bg-secondary/60",
+                    ].join(" ")}
+                  >
+                    <ResultIndicator result={round.result} size="md" />
+                    <span className="tabular-nums">
+                      {formatDropdownLabel(round.expiry, period)}
+                    </span>
+                  </button>
                 ))}
               </div>
-            </Popover.Content>
-          </Popover.Portal>
-        </Popover.Root>
+            ))}
+          </PopoverContent>
+        </Popover>
       )}
 
       {/* Streak strip — last 4 results at a glance */}
@@ -365,7 +363,6 @@ export function RoundsTimeline({
 
       {/* Inline round tabs */}
       <div className="flex items-center gap-0.5 overflow-x-auto">
-        {/* Render tabs in chronological order (oldest first, newest/active last) */}
         {[...tabs].reverse().map((round) => {
           const isActive = round.id === activeRoundId;
           const isLive = round.result === null;

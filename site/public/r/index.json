@@ -118,6 +118,16 @@
       ]
     },
     {
+      "name": "rounds-timeline",
+      "type": "registry:ui",
+      "title": "Rounds Timeline",
+      "description": "Polymarket-style bottom bar for navigating recurring market rounds. Shows inline tabs with result indicators (▲ above / ▼ below), a \"Past\" popover dropdown grouped by date, and a streak strip. Pure presentation — pass rounds data directly. Key props: rounds (Round[]), activeRoundId (number), onRoundSelect (callback), period (\"15m\"|\"1d\"), underlying? (string), visibleCount? (number, default 5).",
+      "dependencies": [],
+      "registryDependencies": [
+        "popover"
+      ]
+    },
+    {
       "name": "use-hip4-client",
       "type": "registry:hook",
       "title": "useHIP4Client",
@@ -285,7 +295,8 @@
         "https://ui.purrdict.xyz/r/probability-chart.json",
         "https://ui.purrdict.xyz/r/use-probability-history.json",
         "https://ui.purrdict.xyz/r/use-hip4-signer.json",
-        "https://ui.purrdict.xyz/r/hip4-format.json"
+        "https://ui.purrdict.xyz/r/hip4-format.json",
+        "https://ui.purrdict.xyz/r/rounds-timeline.json"
       ]
     }
   ]

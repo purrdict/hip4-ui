@@ -513,7 +513,8 @@ const items: RegistryItem[] = [
     description:
       'Polymarket-style bottom bar for navigating recurring market rounds. Shows inline tabs with result indicators (▲ above / ▼ below), a "Past" popover dropdown grouped by date, and a streak strip. Pure presentation — pass rounds data directly. Key props: rounds (Round[]), activeRoundId (number), onRoundSelect (callback), period ("15m"|"1d"), underlying? (string), visibleCount? (number, default 5).',
     author: AUTHOR,
-    dependencies: ["@radix-ui/react-popover"],
+    dependencies: [],
+    registryDependencies: ["popover"],
     files: [
       {
         path: "components/hip4/rounds-timeline.tsx",
