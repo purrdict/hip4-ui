@@ -26,7 +26,8 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+  PopoverPortal,
+} from "./popover.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -221,11 +222,12 @@ export function RoundsTimeline({
               </svg>
             </button>
           </PopoverTrigger>
+          <PopoverPortal>
           <PopoverContent
             side="bottom"
             align="start"
             sideOffset={8}
-            className="w-64 max-h-80 overflow-y-auto p-2"
+            className="z-50 w-64 max-h-80 overflow-y-auto rounded-xl border border-border bg-popover p-2 shadow-lg animate-in fade-in-0 zoom-in-95"
           >
             {overflow.map((round) => {
               const { time, relative } = formatDropdownLabel(round.expiry, period);
@@ -247,6 +249,7 @@ export function RoundsTimeline({
               );
             })}
           </PopoverContent>
+          </PopoverPortal>
         </Popover>
       )}
 

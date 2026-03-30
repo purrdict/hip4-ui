@@ -45,6 +45,9 @@ function readSrc(path: string): string {
   // component-to-component imports
   content = content.replace(/from ["']\.\/(countdown|market-card|orderbook|trade-form|position-card|probability-bar|probability-chart|market-stats|recent-trades|live-price-chart|rounds-timeline)\.js["']/g, 'from "@/components/hip4/$1"');
 
+  // shadcn UI primitive imports (local wrapper → consumer's shadcn component)
+  content = content.replace(/from ["']\.\/popover\.js["']/g, 'from "@/components/ui/popover"');
+
   return content;
 }
 
