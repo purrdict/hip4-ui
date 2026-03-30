@@ -317,7 +317,7 @@ export function RoundsTimeline({
           </PopoverTrigger>
 
           <PopoverContent
-            side="top"
+            side="bottom"
             align="start"
             sideOffset={8}
             className="w-56 max-h-80 overflow-y-auto p-1.5"
@@ -362,7 +362,7 @@ export function RoundsTimeline({
       )}
 
       {/* Inline round tabs */}
-      <div className="flex items-center gap-0.5 overflow-x-auto">
+      <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
         {[...tabs].reverse().map((round) => {
           const isActive = round.id === activeRoundId;
           const isLive = round.result === null;

@@ -76,7 +76,7 @@ function MockTimeline({
 
           {/* Dropdown */}
           {pastOpen && (
-            <div className="absolute bottom-full left-0 mb-2 w-52 max-h-64 overflow-y-auto rounded-xl border border-border bg-card shadow-lg z-50">
+            <div className="absolute top-full left-0 mt-2 w-52 max-h-64 overflow-y-auto rounded-xl border border-border bg-card shadow-lg z-50">
               <div className="p-1.5">
                 {overflow.map((r) => (
                   <button key={r.id}
@@ -107,7 +107,7 @@ function MockTimeline({
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-0.5 overflow-x-auto">
+      <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
         {[...tabs].reverse().map((r) => {
           const isActive = r.id === activeId;
           const isLive = r.result === null;
