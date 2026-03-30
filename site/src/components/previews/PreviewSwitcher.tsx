@@ -18,6 +18,7 @@ import MarketStatsPreview from "./MarketStatsPreview";
 import RecentTradesPreview from "./RecentTradesPreview";
 import LivePriceChartPreview from "./LivePriceChartPreview";
 import ProbabilityChartPreview from "./ProbabilityChartPreview";
+import RoundsTimelinePreview from "./RoundsTimelinePreview";
 
 const previews: Record<string, React.ComponentType> = {
   "market-card": MarketCardPreview,
@@ -30,6 +31,7 @@ const previews: Record<string, React.ComponentType> = {
   "probability-bar": ProbabilityBarPreview,
   "market-stats": MarketStatsPreview,
   "recent-trades": RecentTradesPreview,
+  "rounds-timeline": RoundsTimelinePreview,
 };
 
 export default function PreviewSwitcher({ name }: { name: string }) {
