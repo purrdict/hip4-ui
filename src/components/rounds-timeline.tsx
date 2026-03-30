@@ -2,8 +2,9 @@
  * RoundsTimeline — Polymarket-style bottom bar for navigating recurring market rounds.
  *
  * Shows inline tabs for recent rounds with result indicators (circled ▲/▼),
- * a "Past" popover dropdown grouped by date for older rounds, and a streak strip
- * showing the last N results at a glance.
+ * a "Past" popover dropdown grouped by date for older rounds, a streak strip
+ * showing the last N results at a glance, and rich hover tooltip cards with
+ * resolution time, countdown, and settlement outcome.
  *
  * Pure presentational — pass rounds data directly, no data fetching.
  *
@@ -14,6 +15,7 @@
  *     onRoundSelect={(round) => navigate(`/market/${round.id}`)}
  *     period="15m"
  *     underlying="BTC"
+ *     visibleCount={2}
  *   />
  *
  * registryDependencies: ["popover"] — uses the consumer's shadcn Popover
@@ -21,7 +23,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Popover,
   PopoverContent,
@@ -108,6 +110,22 @@ function formatDropdownLabel(expiry: string, period: string): { time: string; re
   return { time: date, relative };
 }
 
+function formatPrice(n: number): string {
+  if (n >= 1000) return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  if (n >= 1) return `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  return `$${n}`;
+}
+
+function formatTimeLeft(diffMs: number): string {
+  if (diffMs <= 0) return "Ending...";
+  const totalMins = Math.ceil(diffMs / 60000);
+  if (totalMins < 60) return `${totalMins} Min${totalMins !== 1 ? "s" : ""} left`;
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (mins === 0) return `${hrs}h left`;
+  return `${hrs}h ${mins}m left`;
+}
+
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 /** Circled arrow indicator — green circle + white ▲ or red circle + white ▼ */
@@ -144,6 +162,121 @@ function ResultBadge({
   );
 }
 
+/** Resolution time rows (local timezone + UTC) */
+function ResolutionTimeRows({ date }: { date: Date }) {
+  // Use browser's local timezone for first row
+  const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const localTzShort = date.toLocaleTimeString("en-US", { timeZoneName: "short" }).split(" ").pop() ?? localTz.split("/").pop() ?? "Local";
+  const localDate = date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const localTime = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  const utcDate = date.toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
+  const utcTime = date.toLocaleTimeString("en-US", { timeZone: "UTC", hour: "numeric", minute: "2-digit", hour12: true });
+
+  return (
+    <div className="space-y-1.5">
+      <div className="text-xs text-muted-foreground font-medium">Resolution Time</div>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="inline-flex items-center justify-center rounded bg-secondary px-1.5 py-0.5 text-[11px] font-bold leading-none tracking-wide">{localTzShort}</span>
+        <span className="tabular-nums">{localDate}</span>
+        <span className="ml-auto tabular-nums font-medium">{localTime}</span>
+      </div>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="inline-flex items-center justify-center rounded bg-secondary px-1.5 py-0.5 text-[11px] font-bold leading-none tracking-wide">UTC</span>
+        <span className="tabular-nums">{utcDate}</span>
+        <span className="ml-auto tabular-nums font-medium">{utcTime}</span>
+      </div>
+    </div>
+  );
+}
+
+/** Rich tooltip card shown on hover over round tabs and streak circles */
+function RoundTooltipCard({ round }: { round: Round }) {
+  const isLive = round.result === null;
+  const expiryDate = parseDate(round.expiry);
+  const [now, setNow] = useState(Date.now());
+
+  // Tick countdown for live rounds
+  useEffect(() => {
+    if (!isLive) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isLive]);
+
+  const diffMs = expiryDate ? expiryDate.getTime() - now : 0;
+
+  return (
+    <div className="w-72 rounded-xl border border-border bg-popover p-4 shadow-lg text-popover-foreground space-y-3">
+      {isLive ? (
+        /* ── Live header ── */
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive" />
+            </span>
+            <span className="text-destructive font-bold text-sm">LIVE</span>
+          </div>
+          {expiryDate && diffMs > 0 && (
+            <span className="text-sm text-muted-foreground">{formatTimeLeft(diffMs)}</span>
+          )}
+        </div>
+      ) : (
+        /* ── Settled header ── */
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-2">
+            <svg className="h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
+            </svg>
+            <span className="font-semibold text-sm">Event has ended</span>
+          </div>
+
+          {/* Result + prices */}
+          <div className="flex items-center gap-3 rounded-lg bg-secondary/50 px-3 py-2">
+            <ResultBadge result={round.result} />
+            <div className="min-w-0">
+              <div className={`text-sm font-bold ${round.result === "above" ? "text-success" : "text-destructive"}`}>
+                {round.result === "above" ? "Above ▲" : "Below ▼"}
+              </div>
+              <div className="text-xs text-muted-foreground tabular-nums">
+                {round.settlePrice != null && (
+                  <>Settled at {formatPrice(round.settlePrice)} · </>
+                )}
+                Target {formatPrice(round.targetPrice)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resolution time */}
+      {expiryDate && (
+        <>
+          <div className="border-t border-border/50" />
+          <ResolutionTimeRows date={expiryDate} />
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Wrapper that shows a tooltip card on hover */
+function WithTooltip({
+  round,
+  children,
+}: {
+  round: Round;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative group/tip">
+      {children}
+      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-50">
+        <RoundTooltipCard round={round} />
+      </div>
+    </div>
+  );
+}
+
 function StreakStrip({
   rounds,
   period,
@@ -153,7 +286,8 @@ function StreakStrip({
   period: string;
   onRoundSelect: (round: Round) => void;
 }) {
-  const settled = rounds.filter((r) => r.result !== null).slice(0, 4);
+  // Most recent 3, reversed so oldest is on left → newest on right (closest to live tab)
+  const settled = rounds.filter((r) => r.result !== null).slice(0, 3).reverse();
   if (settled.length === 0) return null;
   return (
     <div className="flex items-center gap-1 group/streak" aria-label="Recent results">
@@ -165,7 +299,6 @@ function StreakStrip({
           title={formatTabLabel(r.expiry, period)}
         >
           <ResultBadge result={r.result} />
-          {/* Tooltip */}
           <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-popover border border-border px-2 py-1 text-[11px] font-medium tabular-nums text-popover-foreground whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity shadow-sm">
             {formatTabLabel(r.expiry, period)}
           </span>
@@ -262,31 +395,32 @@ export function RoundsTimeline({
       )}
 
       {/* Inline round tabs */}
-      <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
+      <div className="flex items-center gap-0.5">
         {[...tabs].reverse().map((round) => {
           const isActive = round.id === activeRoundId;
           const isLive = round.result === null;
 
           return (
-            <button
-              key={round.id}
-              onClick={() => onRoundSelect(round)}
-              className={[
-                "flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
-                isActive
-                  ? "bg-foreground text-background shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
-              ].join(" ")}
-              aria-current={isActive ? "true" : undefined}
-            >
-              {isLive && (
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive" />
-                </span>
-              )}
-              <span className="tabular-nums">{formatTabLabel(round.expiry, period)}</span>
-            </button>
+            <WithTooltip key={round.id} round={round}>
+              <button
+                onClick={() => onRoundSelect(round)}
+                className={[
+                  "flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
+                  isActive
+                    ? "bg-foreground text-background shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
+                ].join(" ")}
+                aria-current={isActive ? "true" : undefined}
+              >
+                {isLive && (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive" />
+                  </span>
+                )}
+                <span className="tabular-nums">{formatTabLabel(round.expiry, period)}</span>
+              </button>
+            </WithTooltip>
           );
         })}
       </div>
