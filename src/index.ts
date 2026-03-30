@@ -96,6 +96,9 @@ export type { LivePriceChartProps, PricePoint } from "./components/live-price-ch
 export { ProbabilityChart, OUTCOME_COLORS } from "./components/probability-chart.js";
 export type { ProbabilityChartProps, OutcomeSeries } from "./components/probability-chart.js";
 
+export { RoundsTimeline } from "./components/rounds-timeline.js";
+export type { RoundsTimelineProps, Round } from "./components/rounds-timeline.js";
+
 // Formatting utilities
 export {
   formatMidPrice,
