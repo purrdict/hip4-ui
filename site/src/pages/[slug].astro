@@ -1,0 +1,817 @@
+---
+import Base from "../layouts/Base.astro";
+import { Code } from "astro:components";
+import PreviewSwitcher from "../components/previews/PreviewSwitcher";
+import InstallBlock from "../components/InstallBlock.astro";
+import ThemeToggle from "../components/ThemeToggle.astro";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+export async function getStaticPaths() {
+  const registry = JSON.parse(
+    readFileSync(join(process.cwd(), "public/r/index.json"), "utf-8")
+  );
+  return registry.items.map((item: any) => ({
+    params: { slug: item.name },
+    props: { item },
+  }));
+}
+
+const { item } = Astro.props;
+const { slug } = Astro.params;
+
+// Load the full registry item JSON for this component
+let fullItem: any = {};
+try {
+  fullItem = JSON.parse(
+    readFileSync(join(process.cwd(), "public/r", `${slug}.json`), "utf-8")
+  );
+} catch {
+  // fallback to index item if individual JSON doesn't exist
+  fullItem = item;
+}
+
+// Components that have interactive previews
+const previewNames = new Set([
+  "market-card",
+  "live-price-chart",
+  "probability-chart",
+  "orderbook",
+  "trade-form",
+  "countdown",
+  "position-card",
+  "probability-bar",
+  "market-stats",
+  "recent-trades",
+]);
+
+// Component metadata
+const componentMeta: Record<
+  string,
+  { props: { name: string; type: string; desc: string }[]; usage: string }
+> = {
+  "market-card": {
+    props: [
+      {
+        name: "variant",
+        type: "MarketVariant",
+        desc: '"event" | "recurring" | "named-binary" | "question". Default: "event"',
+      },
+      {
+        name: "market",
+        type: "Market",
+        desc: "Market object — required for event/recurring variants",
+      },
+      {
+        name: "yesMid",
+        type: "number | string",
+        desc: "Yes mid price (0-1)",
+      },
+      {
+        name: "noMid",
+        type: "number | string",
+        desc: "No mid price. Defaults to 1 - yesMid",
+      },
+      { name: "volume", type: "number", desc: "24h volume in USDH" },
+      {
+        name: "underlying",
+        type: "string",
+        desc: 'Asset symbol for recurring variant (e.g. "BTC")',
+      },
+      {
+        name: "title",
+        type: "string",
+        desc: "Card title for named-binary variant",
+      },
+      {
+        name: "sides",
+        type: "NamedSide[]",
+        desc: "Named sides for named-binary variant ({name, avatarUrl?})",
+      },
+      {
+        name: "questionName",
+        type: "string",
+        desc: "Question title for question variant",
+      },
+      {
+        name: "outcomes",
+        type: "Outcome[]",
+        desc: "Outcomes for question variant ({name, yesPx})",
+      },
+      { name: "onClick", type: "() => void", desc: "Click handler" },
+    ],
+    usage: `import { MarketCard } from "@/components/hip4/market-card"
+import { useMarkets } from "@/hooks/hip4/use-markets"
+
+function MarketList() {
+  // Variant auto-detected from market.description
+  // Prices auto-resolved from mids map
+  const { markets, mids } = useMarkets()
+
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      {markets.map((m) => (
+        <MarketCard
+          key={m.yesCoin}
+          market={m}
+          mids={mids}
+          onSideClick={(side) =>
+            router.push(\`/market/\${m.yesCoin}?side=\${side}\`)
+          }
+        />
+      ))}
+    </div>
+  )
+}`,
+  },
+  "live-price-chart": {
+    props: [
+      {
+        name: "symbol",
+        type: "string",
+        desc: "Underlying asset symbol (BTC, ETH, SOL, HYPE)",
+      },
+      {
+        name: "prices",
+        type: "PricePoint[]",
+        desc: "Array of {time, value} price history",
+      },
+      {
+        name: "currentPrice",
+        type: "number",
+        desc: "Latest live price for the dot indicator",
+      },
+      {
+        name: "targetPrice",
+        type: "number",
+        desc: "Reference target price dashed line",
+      },
+      {
+        name: "color",
+        type: "string",
+        desc: "Line color override. Defaults to asset brand (BTC #f7931a, ETH #627eea, SOL #9945ff, HYPE #50e3c2)",
+      },
+      { name: "height", type: "number", desc: "Chart height in px. Default: 200" },
+      {
+        name: "theme",
+        type: '"light" | "dark"',
+        desc: 'Color scheme. Default: "dark"',
+      },
+    ],
+    usage: `import { LivePriceChart } from "@/components/hip4/live-price-chart"
+import { useUnderlyingPrice } from "@/hooks/hip4/use-underlying-price"
+
+function PriceChart({ symbol, targetPrice }: {
+  symbol: string
+  targetPrice: number
+}) {
+  const { prices, currentPrice } = useUnderlyingPrice(symbol, {
+    historyMinutes: 60,
+  })
+
+  return (
+    <LivePriceChart
+      symbol={symbol}
+      prices={prices}
+      currentPrice={currentPrice}
+      targetPrice={targetPrice}
+      height={200}
+    />
+  )
+}`,
+  },
+  "probability-chart": {
+    props: [
+      {
+        name: "series",
+        type: "OutcomeSeries[]",
+        desc: "Array of { id, label, color?, data, currentValue }",
+      },
+      { name: "height", type: "number", desc: "Chart height in px. Default: 220" },
+      {
+        name: "theme",
+        type: '"light" | "dark"',
+        desc: 'Color scheme. Default: "dark"',
+      },
+    ],
+    usage: `import { ProbabilityChart } from "@/components/hip4/probability-chart"
+import { useProbabilityHistory } from "@/hooks/hip4/use-probability-history"
+
+// Multi-outcome question market (3+ outcomes)
+function QuestionChart({ markets }: { markets: Market[] }) {
+  const { series, isLoading } = useProbabilityHistory(markets)
+
+  if (isLoading) return <Skeleton />
+
+  return (
+    <ProbabilityChart
+      series={series}
+      height={220}
+    />
+  )
+}`,
+  },
+  orderbook: {
+    props: [
+      { name: "coin", type: "string", desc: "Coin identifier for the outcome" },
+      {
+        name: "bids",
+        type: "BookLevel[]",
+        desc: "Bid levels sorted by price desc",
+      },
+      {
+        name: "asks",
+        type: "BookLevel[]",
+        desc: "Ask levels sorted by price asc",
+      },
+      { name: "depth", type: "number", desc: "Levels to display. Default: 10" },
+      {
+        name: "onPriceClick",
+        type: "(price: number) => void",
+        desc: "Click handler for price level",
+      },
+    ],
+    usage: `import { Orderbook } from "@/components/hip4/orderbook"
+import { useOrderbook } from "@/hooks/hip4/use-orderbook"
+
+function MarketOrderbook({ coin }: { coin: string }) {
+  const { bids, asks } = useOrderbook(undefined, coin)
+
+  return (
+    <Orderbook
+      coin={coin}
+      bids={bids}
+      asks={asks}
+      depth={10}
+      onPriceClick={(px) => setLimitPrice(px)}
+    />
+  )
+}`,
+  },
+  "trade-form": {
+    props: [
+      { name: "market", type: "Market", desc: "Market object" },
+      {
+        name: "side",
+        type: "TradeSide",
+        desc: '"Yes" | "No" — active trade side',
+      },
+      {
+        name: "onSideChange",
+        type: "(side: TradeSide) => void",
+        desc: "Called when user switches side",
+      },
+      {
+        name: "currentPrice",
+        type: "number",
+        desc: "Current mid price for selected side (0-1)",
+      },
+      { name: "minShares", type: "number", desc: "Minimum order size" },
+      {
+        name: "builder",
+        type: "BuilderConfig",
+        desc: "Builder fee config: { address: string, fee: number }",
+      },
+      {
+        name: "usdhBalance",
+        type: "number",
+        desc: "User's free USDH balance for validation",
+      },
+      {
+        name: "isConnected",
+        type: "boolean",
+        desc: "Whether the wallet is connected/signed in",
+      },
+      {
+        name: "onTrade",
+        type: "(params: TradeParams) => Promise<void>",
+        desc: "Trade execution callback",
+      },
+    ],
+    usage: `import { TradeForm } from "@/components/hip4/trade-form"
+import { useOrderbook } from "@/hooks/hip4/use-orderbook"
+import { usePortfolio } from "@/hooks/hip4/use-portfolio"
+import { useMinShares } from "@/hooks/hip4/use-min-shares"
+
+function TradingPanel({ market }: { market: Market }) {
+  // Hooks auto-resolve client from HIP4Provider
+  const book = useOrderbook(undefined, market.sides[0].coin)
+  const { balance } = usePortfolio(undefined, address)
+  const { minShares } = useMinShares(undefined, market.sides[0].coin)
+
+  return (
+    <TradeForm
+      sides={market.sides}
+      bookData={book}
+      minShares={minShares}
+      usdhBalance={balance}
+      isConnected={!!signer}
+      onSubmit={async (params) => {
+        await placeOrder(params)
+      }}
+    />
+  )
+}`,
+  },
+  countdown: {
+    props: [{ name: "expiry", type: "Date", desc: "UTC expiry date" }],
+    usage: `// Segmented countdown (DAYS / HRS / MINS / SECS with urgency colors)
+import { Countdown } from "@/components/hip4/countdown"
+
+<Countdown expiry={market.expiry} />
+
+// Simple text countdown (legacy — "2h 15m 30s")
+import { CountdownTimer } from "@/components/hip4/countdown"
+
+<CountdownTimer
+  expiry={market.expiry}
+  onExpire={() => refetchMarket()}
+/>`,
+  },
+  "position-card": {
+    props: [
+      { name: "coin", type: "string", desc: "Coin identifier for the position" },
+      { name: "shares", type: "number", desc: "Number of shares held" },
+      {
+        name: "avgEntry",
+        type: "number",
+        desc: "Average entry price. Optional — hides if unknown",
+      },
+      {
+        name: "currentPrice",
+        type: "number",
+        desc: "Current mid/mark price",
+      },
+      {
+        name: "onSell",
+        type: "(coin: string) => void",
+        desc: "Sell button click handler",
+      },
+    ],
+    usage: `import { PositionCard } from "@/components/hip4/position-card"
+
+<PositionCard
+  coin={market.yesCoin}
+  shares={100}
+  avgEntry={0.45}
+  currentPrice={0.65}
+  onSell={(coin) => openSellDialog(coin)}
+/>`,
+  },
+  "probability-bar": {
+    props: [
+      { name: "yesPx", type: "number", desc: "Yes probability (0-1)" },
+      { name: "noPx", type: "number", desc: "No probability (0-1)" },
+      {
+        name: "yesLabel",
+        type: "string",
+        desc: 'Yes side label. Default: "Yes"',
+      },
+      {
+        name: "noLabel",
+        type: "string",
+        desc: 'No side label. Default: "No"',
+      },
+    ],
+    usage: `import { ProbabilityBar } from "@/components/hip4/probability-bar"
+
+{/* Default Yes/No */}
+<ProbabilityBar yesPx={0.72} noPx={0.28} />
+
+{/* Recurring markets — Up/Down */}
+<ProbabilityBar
+  yesPx={0.58}
+  noPx={0.42}
+  yesLabel="Up"
+  noLabel="Down"
+/>`,
+  },
+  "market-stats": {
+    props: [
+      { name: "volume", type: "number", desc: "24h volume in USDH" },
+      { name: "trades", type: "number", desc: "Total trade count" },
+      { name: "traders", type: "number", desc: "Unique trader count" },
+    ],
+    usage: `import { MarketStats } from "@/components/hip4/market-stats"
+
+<MarketStats volume={42500} trades={186} traders={24} />`,
+  },
+  "recent-trades": {
+    props: [
+      {
+        name: "trades",
+        type: "Trade[]",
+        desc: "Array of { side, label, price, size, time }",
+      },
+      {
+        name: "maxRows",
+        type: "number",
+        desc: "Max visible rows. Default: 20",
+      },
+    ],
+    usage: `import { RecentTrades } from "@/components/hip4/recent-trades"
+import type { Trade } from "@/components/hip4/recent-trades"
+
+<RecentTrades
+  trades={recentTrades}
+  maxRows={15}
+/>`,
+  },
+};
+
+// Hook metadata
+const hookMeta: Record<
+  string,
+  { signature: string; returns: string; usage: string }
+> = {
+  "use-hip4-client": {
+    signature: "useHIP4Client(opts?: { testnet?: boolean })",
+    returns: "HIP4Client",
+    usage: `const client = useHIP4Client({ testnet: true })
+
+// Or use HIP4Provider for zero prop-drilling:
+// <HIP4Provider testnet={true}><App /></HIP4Provider>
+// Then all hooks read from context automatically.`,
+  },
+  "use-hip4-signer": {
+    signature: "useHIP4Signer()",
+    returns: "HIP4Signer | null",
+    usage: `const signer = useHIP4Signer()
+// null when wallet disconnected`,
+  },
+  "use-markets": {
+    signature: "useMarkets(client?: HIP4Client)",
+    returns: "{ markets, mids, isLoading, error }",
+    usage: `// Explicit client
+const { markets, mids } = useMarkets(client)
+
+// Or with HIP4Provider (no client needed)
+const { markets, mids } = useMarkets()`,
+  },
+  "use-orderbook": {
+    signature: "useOrderbook(client?: HIP4Client, coin: string)",
+    returns: "{ bids, asks, spread, midPrice }",
+    usage: `// Explicit client
+const { bids, asks } = useOrderbook(client, market.yesCoin)
+
+// Or with HIP4Provider
+const { bids, asks } = useOrderbook(undefined, market.yesCoin)`,
+  },
+  "use-portfolio": {
+    signature: "usePortfolio(client?: HIP4Client, address: string)",
+    returns: "{ balance, positions, orders, refresh }",
+    usage: `const { balance, positions } = usePortfolio(
+  client,
+  address
+)`,
+  },
+  "use-trade": {
+    signature: "useTrade(client?: HIP4Client, signer: HIP4Signer)",
+    returns: "{ buy, sell, cancel, isSubmitting, error }",
+    usage: `const { buy, sell, cancel } = useTrade(client, signer)
+
+await buy({
+  coin: market.yesCoin,
+  shares: 20,
+  price: 0.55,
+})`,
+  },
+  "use-min-shares": {
+    signature: "useMinShares(client?: HIP4Client, coin: string)",
+    returns: "{ minShares, markPrice, isLoading }",
+    usage: `const { minShares } = useMinShares(
+  client,
+  market.yesCoin
+)`,
+  },
+  "hip4-provider": {
+    signature: "<HIP4Provider testnet={boolean}>",
+    returns: "React.ReactElement",
+    usage: `// Wrap your app once — all hooks auto-resolve client
+import { HIP4Provider } from "@/hooks/hip4/hip4-provider"
+
+<HIP4Provider testnet={true}>
+  <App />
+</HIP4Provider>
+
+// Then in any component:
+const { markets } = useMarkets()  // no client arg needed
+const { bids } = useOrderbook(market.yesCoin)`,
+  },
+  "use-market": {
+    signature: "useMarket(market: Market)",
+    returns: "{ yesMid, noMid, minShares, isLoading }",
+    usage: `import { useMarket } from "@/hooks/hip4/use-market"
+
+// Per-market subscription — ONLY rerenders when THIS market changes
+function MarketRow({ market }: { market: Market }) {
+  const { yesMid, noMid, minShares } = useMarket(market)
+  return <MarketCard market={market} yesMid={yesMid} />
+}`,
+  },
+  "use-recent-trades": {
+    signature: "useRecentTrades(coin: string)",
+    returns: "{ trades, isLoading, error }",
+    usage: `import { useRecentTrades } from "@/hooks/hip4/use-recent-trades"
+
+const { trades } = useRecentTrades(market.yesCoin)
+<RecentTrades trades={trades} />`,
+  },
+  "use-underlying-price": {
+    signature: "useUnderlyingPrice(symbol: string, opts?)",
+    returns: "{ prices, currentPrice, isLoading }",
+    usage: `import { useUnderlyingPrice } from "@/hooks/hip4/use-underlying-price"
+
+// Feeds LivePriceChart with underlying asset perp price
+const { prices, currentPrice } = useUnderlyingPrice("BTC", {
+  historyMinutes: 60,
+})
+
+<LivePriceChart
+  symbol="BTC"
+  prices={prices}
+  currentPrice={currentPrice}
+  targetPrice={market.targetPrice}
+/>`,
+  },
+  "use-probability-history": {
+    signature: "useProbabilityHistory(markets: Market[])",
+    returns: "{ series, isLoading, error }",
+    usage: `import { useProbabilityHistory } from "@/hooks/hip4/use-probability-history"
+
+// Multi-outcome question markets (3+ outcomes)
+const { series, isLoading } = useProbabilityHistory(questionMarkets)
+
+<ProbabilityChart series={series} height={220} />`,
+  },
+};
+
+// Determine item type for badge label
+function getBadgeLabel(type: string): string {
+  if (type === "registry:ui") return "COMPONENT";
+  if (type === "registry:hook") return "HOOK";
+  if (type === "registry:lib") return "LIB";
+  if (type === "registry:example") return "EXAMPLE";
+  return type.replace("registry:", "").toUpperCase();
+}
+
+const badgeLabel = getBadgeLabel(item.type);
+const isComponent = item.type === "registry:ui";
+const isHook = item.type === "registry:hook";
+
+const meta = isComponent ? componentMeta[slug] : null;
+const hook = isHook ? hookMeta[slug] : null;
+
+const pageTitle = `${item.title || item.name} — HIP-4 Component | ui.purrdict.xyz`;
+const pageDescription = item.description || `HIP-4 prediction market ${badgeLabel.toLowerCase()} for React. Install with shadcn.`;
+const canonicalUrl = `https://ui.purrdict.xyz/${slug}`;
+
+// npm deps + registry deps for display
+const npmDeps: string[] = fullItem.dependencies || item.dependencies || [];
+const registryDeps: string[] = fullItem.registryDependencies || item.registryDependencies || [];
+---
+
+<Base title={pageTitle} description={pageDescription}>
+  <!-- Nav -->
+  <nav class="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-lg">
+    <div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
+      <div class="flex items-center gap-2 text-sm min-w-0">
+        <a href="/" class="text-muted-foreground hover:text-foreground transition-colors shrink-0">HIP-4 UI</a>
+        <span class="text-border shrink-0">/</span>
+        <a
+          href={`/#${isHook ? "hooks" : "components"}`}
+          class="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+        >
+          {isHook ? "Hooks" : isComponent ? "Components" : "Registry"}
+        </a>
+        <span class="text-border shrink-0">/</span>
+        <span class="text-foreground font-medium truncate">{item.title || item.name}</span>
+      </div>
+      <div class="flex items-center gap-4 shrink-0">
+        <a
+          href="https://github.com/purrdict/hip4-ui"
+          class="hidden text-sm text-muted-foreground hover:text-foreground transition-colors sm:block"
+          target="_blank"
+          rel="noopener"
+        >GitHub</a>
+        <ThemeToggle />
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+
+    <!-- Header -->
+    <header class="mb-8">
+      <div class="flex items-center gap-3 mb-3">
+        <span class={`rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
+          isComponent
+            ? "bg-primary/10 text-primary"
+            : isHook
+            ? "bg-blue-500/10 text-blue-400"
+            : "bg-amber-500/10 text-amber-400"
+        }`}>
+          {badgeLabel}
+        </span>
+        <span class="font-mono text-xs text-muted-foreground">{slug}</span>
+      </div>
+
+      <h1 class="font-display text-3xl font-medium tracking-tight mb-3 sm:text-4xl">
+        {item.title || item.name}
+      </h1>
+
+      <p class="text-base text-muted-foreground max-w-2xl leading-relaxed">
+        {item.description}
+      </p>
+    </header>
+
+    <!-- Install block -->
+    <div class="mb-10">
+      <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Install</p>
+      <InstallBlock name={slug} />
+    </div>
+
+    <!-- Live preview (components with previews only) -->
+    {previewNames.has(slug) && (
+      <section class="mb-10">
+        <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Preview</p>
+        <div class="rounded-xl border bg-muted/30 p-4 sm:p-8 flex items-center justify-center min-h-[220px] overflow-x-auto">
+          <PreviewSwitcher client:load name={slug} />
+        </div>
+      </section>
+    )}
+
+    <!-- Component sections: Usage + Props -->
+    {meta && (
+      <div class="rounded-xl border bg-card overflow-hidden mb-10">
+        <!-- Usage (collapsible, open by default) -->
+        <details class="border-b group" open>
+          <summary class="px-6 py-4 cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors flex items-center gap-2 select-none">
+            <svg class="h-3 w-3 transition-transform group-open:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+            Usage
+          </summary>
+          <div class="px-6 pb-5 pt-1">
+            <div class="rounded-lg overflow-hidden text-sm">
+              <Code code={meta.usage} lang="tsx" theme="github-dark" />
+            </div>
+          </div>
+        </details>
+
+        <!-- Props table (collapsible, open by default) -->
+        <details class="group" open>
+          <summary class="px-6 py-4 cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors flex items-center gap-2 select-none">
+            <svg class="h-3 w-3 transition-transform group-open:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+            Props
+          </summary>
+          <div class="px-6 pb-5 overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b">
+                  <th class="text-left py-2 pr-4 font-medium text-muted-foreground">Prop</th>
+                  <th class="text-left py-2 pr-4 font-medium text-muted-foreground">Type</th>
+                  <th class="text-left py-2 font-medium text-muted-foreground">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {meta.props.map((p) => (
+                  <tr class="border-b last:border-0">
+                    <td class="py-2 pr-4 align-top">
+                      <code class="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">{p.name}</code>
+                    </td>
+                    <td class="py-2 pr-4 text-muted-foreground font-mono text-xs align-top">{p.type}</td>
+                    <td class="py-2 text-muted-foreground text-xs align-top">{p.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+    )}
+
+    <!-- Hook sections: Signature + Returns + Usage -->
+    {hook && (
+      <div class="rounded-xl border bg-card overflow-hidden mb-10">
+        <!-- Signature + Returns -->
+        <div class="px-6 py-5 border-b">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <p class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Signature</p>
+              <code class="font-mono text-xs text-foreground/80 block">{hook.signature}</code>
+            </div>
+            <div>
+              <p class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Returns</p>
+              <code class="font-mono text-xs text-foreground/80 block">{hook.returns}</code>
+            </div>
+          </div>
+        </div>
+
+        <!-- Usage (open by default) -->
+        <details class="group" open>
+          <summary class="px-6 py-4 cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors flex items-center gap-2 select-none">
+            <svg class="h-3 w-3 transition-transform group-open:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+            Usage
+          </summary>
+          <div class="px-6 pb-5 pt-1">
+            <div class="rounded-lg overflow-hidden text-sm">
+              <Code code={hook.usage} lang="tsx" theme="github-dark" />
+            </div>
+          </div>
+        </details>
+      </div>
+    )}
+
+    <!-- Lib / Example: show description only (no props/hook data) -->
+    {!meta && !hook && (
+      <div class="rounded-xl border bg-card px-6 py-5 mb-10">
+        <p class="text-sm text-muted-foreground">{item.description}</p>
+      </div>
+    )}
+
+    <!-- Dependencies -->
+    {(npmDeps.length > 0 || registryDeps.length > 0) && (
+      <section class="mb-10">
+        <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Dependencies</p>
+        <div class="rounded-xl border bg-card divide-y">
+          {npmDeps.length > 0 && (
+            <div class="px-5 py-4">
+              <p class="text-xs font-medium text-muted-foreground mb-2.5">npm packages</p>
+              <div class="flex flex-wrap gap-2">
+                {npmDeps.map((dep: string) => (
+                  <a
+                    href={`https://www.npmjs.com/package/${dep}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="rounded bg-muted px-2 py-1 font-mono text-xs hover:bg-muted/80 transition-colors"
+                  >
+                    {dep}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+          {registryDeps.length > 0 && (
+            <div class="px-5 py-4">
+              <p class="text-xs font-medium text-muted-foreground mb-2.5">Registry components</p>
+              <div class="flex flex-wrap gap-2">
+                {registryDeps.map((dep: string) => {
+                  // Extract the slug from the registry URL: .../r/{name}.json
+                  const depSlug = dep.split("/r/").pop()?.replace(".json", "") ?? dep;
+                  return (
+                    <a
+                      href={`/${depSlug}`}
+                      class="rounded bg-muted px-2 py-1 font-mono text-xs hover:bg-muted/80 transition-colors"
+                    >
+                      {depSlug}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+    )}
+
+    <!-- Back + browse more -->
+    <footer class="flex items-center justify-between pt-4 border-t">
+      <a
+        href="/"
+        class="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+      >
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+        Back to registry
+      </a>
+      <div class="flex items-center gap-4 text-sm text-muted-foreground">
+        <a href="https://github.com/purrdict/hip4-ui" class="hover:text-foreground transition-colors" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://x.com/hypurrdict" class="hover:text-foreground transition-colors" target="_blank" rel="noopener">@hypurrdict</a>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    // Copy button logic (mirrors index.astro)
+    document.querySelectorAll<HTMLButtonElement>(".copy-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const text = btn.dataset.copy;
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          const copy = btn.querySelector<SVGElement>(".copy-icon");
+          const check = btn.querySelector<SVGElement>(".check-icon");
+          if (copy && check) {
+            copy.classList.add("hidden");
+            check.classList.remove("hidden");
+            setTimeout(() => {
+              copy.classList.remove("hidden");
+              check.classList.add("hidden");
+            }, 2000);
+          }
+        } catch {}
+      });
+    });
+  </script>
+</Base>
