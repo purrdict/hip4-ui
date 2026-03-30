@@ -22,7 +22,7 @@ jobs:
         with:
           bun-version: latest
 
-      - run: bun install --frozen-lockfile
+      - run: bun install
 
       - name: Type check
         run: bunx tsc --noEmit
@@ -40,7 +40,7 @@ jobs:
         with:
           bun-version: latest
 
-      - run: bun install --frozen-lockfile
+      - run: bun install
 
       - name: Integration tests (Hyperliquid testnet)
         run: bun test tests/integration.test.ts
