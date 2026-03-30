@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
 
 // ─── Inline types + helpers (self-contained, no src/ imports) ────────────────
 
@@ -26,6 +27,20 @@ function formatLabel(expiry: string, short: boolean): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function formatDropdownLabel(expiry: string, short: boolean): string {
+  const d = parseDate(expiry);
+  if (!d) return expiry;
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  const relative = diffDays === 0 ? "Today" : diffDays === 1 ? "Yesterday" : `${diffDays}d ago`;
+  if (short) {
+    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" });
+    return `${time} · ${relative}`;
+  }
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${date} · ${relative}`;
+}
+
 function Indicator({ result, size = 14 }: { result: "above" | "below" | null; size?: number }) {
   if (result === null) {
     return <span className="h-2 w-2 rounded-full bg-destructive animate-pulse inline-block" />;
@@ -38,7 +53,7 @@ function Indicator({ result, size = 14 }: { result: "above" | "below" | null; si
   );
 }
 
-// ─── Mock inline timeline (mimics the real component without Radix) ──────────
+// ─── Mock timeline with real Radix Popover (portaled, no clipping) ───────────
 
 function MockTimeline({
   rounds, activeId, onSelect, short, underlying, visibleCount = 5,
@@ -57,41 +72,44 @@ function MockTimeline({
   const overflow = sorted.slice(visibleCount);
 
   return (
-    <div className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-card/95 backdrop-blur-sm px-2 py-1.5 relative">
-      {/* Past button */}
+    <div className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-card/95 backdrop-blur-sm px-2 py-1.5">
+      {/* Past button + portaled dropdown */}
       {overflow.length > 0 && (
-        <div className="relative">
-          <button
-            onClick={() => setPastOpen(!pastOpen)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              pastOpen ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-            }`}
-          >
-            Past
-            <svg className={`h-3 w-3 transition-transform ${pastOpen ? "rotate-180" : ""}`}
-              fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-            </svg>
-          </button>
+        <PopoverPrimitive.Root open={pastOpen} onOpenChange={setPastOpen}>
+          <PopoverPrimitive.Trigger asChild>
+            <button
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                pastOpen ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+              }`}
+            >
+              Past
+              <svg className={`h-3 w-3 transition-transform ${pastOpen ? "rotate-180" : ""}`}
+                fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+          </PopoverPrimitive.Trigger>
 
-          {/* Dropdown */}
-          {pastOpen && (
-            <div className="absolute top-full left-0 mt-2 w-52 max-h-64 overflow-y-auto rounded-xl border border-border bg-card shadow-lg z-50">
-              <div className="p-1.5">
-                {overflow.map((r) => (
-                  <button key={r.id}
-                    onClick={() => { onSelect(r); setPastOpen(false); }}
-                    className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-sm transition-colors ${
-                      r.id === activeId ? "bg-secondary text-foreground" : "text-foreground/80 hover:bg-secondary/60"
-                    }`}>
-                    <Indicator result={r.result} />
-                    <span className="tabular-nums">{formatLabel(r.expiry, short)}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+          <PopoverPrimitive.Portal>
+            <PopoverPrimitive.Content
+              side="bottom"
+              align="start"
+              sideOffset={8}
+              className="z-50 w-56 max-h-80 overflow-y-auto rounded-xl border border-border bg-card shadow-lg p-1.5 animate-in fade-in-0 zoom-in-95"
+            >
+              {overflow.map((r) => (
+                <button key={r.id}
+                  onClick={() => { onSelect(r); setPastOpen(false); }}
+                  className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-sm transition-colors ${
+                    r.id === activeId ? "bg-secondary text-foreground" : "text-foreground/80 hover:bg-secondary/60"
+                  }`}>
+                  <Indicator result={r.result} />
+                  <span className="tabular-nums">{formatDropdownLabel(r.expiry, short)}</span>
+                </button>
+              ))}
+            </PopoverPrimitive.Content>
+          </PopoverPrimitive.Portal>
+        </PopoverPrimitive.Root>
       )}
 
       {/* Streak strip */}
@@ -156,11 +174,12 @@ const HYPE_ROUNDS: Round[] = [
   { id: 2663, expiry: "2026-03-30T17:15:00Z", result: "below", targetPrice: 39, settlePrice: 39 },
   { id: 2662, expiry: "2026-03-30T17:00:00Z", result: "below", targetPrice: 39, settlePrice: 39 },
   { id: 2661, expiry: "2026-03-30T16:45:00Z", result: "below", targetPrice: 42, settlePrice: 39 },
-  { id: 2660, expiry: "2026-03-30T16:30:00Z", result: "below", targetPrice: 42, settlePrice: 42 },
+  { id: 2660, expiry: "2026-03-30T16:30:00Z", result: "above", targetPrice: 42, settlePrice: 42 },
   { id: 2659, expiry: "2026-03-30T16:15:00Z", result: "below", targetPrice: 42, settlePrice: 42 },
   { id: 2658, expiry: "2026-03-30T16:00:00Z", result: "above", targetPrice: 41, settlePrice: 42 },
   { id: 2657, expiry: "2026-03-30T15:45:00Z", result: "above", targetPrice: 43.886, settlePrice: 44.43 },
   { id: 2656, expiry: "2026-03-30T15:30:00Z", result: "below", targetPrice: 45, settlePrice: 43.92 },
+  { id: 2655, expiry: "2026-03-30T15:15:00Z", result: "below", targetPrice: 45, settlePrice: 43.92 },
 ];
 
 // ─── Preview ─────────────────────────────────────────────────────────────────
