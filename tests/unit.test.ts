@@ -903,22 +903,23 @@ describe("useUnderlyingPrice source file contract", () => {
     expect(src).toContain("isLoading");
   });
 
-  test("useUnderlyingPrice uses candleSnapshot for history", async () => {
+  test("useUnderlyingPrice seeds markPx from metaAndAssetCtxs", async () => {
     const fs = await import("fs/promises");
     const src = await fs.readFile(
       new URL("../src/hooks/use-underlying-price.ts", import.meta.url),
       "utf8",
     );
-    expect(src).toContain("candleSnapshot");
+    expect(src).toContain("metaAndAssetCtxs");
+    expect(src).toContain("markPx");
   });
 
-  test("useUnderlyingPrice subscribes to allMids for live updates", async () => {
+  test("useUnderlyingPrice subscribes to activeAssetCtx for live markPx", async () => {
     const fs = await import("fs/promises");
     const src = await fs.readFile(
       new URL("../src/hooks/use-underlying-price.ts", import.meta.url),
       "utf8",
     );
-    expect(src).toContain("allMids");
+    expect(src).toContain("activeAssetCtx");
   });
 
   test("useUnderlyingPrice cleans up subscription on unmount", async () => {

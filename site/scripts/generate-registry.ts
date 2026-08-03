@@ -335,9 +335,9 @@ const items: RegistryItem[] = [
     type: "registry:ui",
     title: "Live Price Chart",
     description:
-      "Canvas-based real-time chart for the underlying asset's perp price (what the prediction market resolves against). Feed with useUnderlyingPrice(symbol) which returns { prices, currentPrice }. Key props: symbol (string), prices (PricePoint[]), currentPrice (number), targetPrice? (number, the strike price), color? (string, defaults to asset brand color).",
+      "Liveline-powered real-time chart for the underlying asset's perp markPx (what the prediction market resolves against). Feed with useUnderlyingPrice(symbol) which returns { prices, currentPrice }. Key props: symbol (string), prices (PricePoint[]), currentPrice (number), targetPrice? (number, the strike price), color? (string, defaults to asset brand color).",
     author: AUTHOR,
-    dependencies: [],
+    dependencies: ["liveline"],
     registryDependencies: [
       `${BASE_URL}/hip4-format.json`,
       `${BASE_URL}/use-underlying-price.json`,
@@ -358,9 +358,9 @@ const items: RegistryItem[] = [
     type: "registry:ui",
     title: "Probability Chart",
     description:
-      "Polymarket-style multi-line step-function probability chart for multi-outcome question markets (3+ outcomes). NOT for binary markets — use ProbabilityBar instead. Feed with useProbabilityHistory(questionMarkets) which returns { series }. Key props: series (OutcomeSeries[]), height? (default 220), theme? ('dark'|'light'). Each outcome auto-assigned a color from OUTCOME_COLORS palette, overridable per series.",
+      "Liveline-powered multi-line probability chart for multi-outcome question markets (3+ outcomes). NOT for binary markets — use ProbabilityBar instead. Feed with useProbabilityHistory(questionMarkets) which returns { series }. Key props: series (OutcomeSeries[]), height? (default 220), theme? ('dark'|'light'). Each outcome is assigned a color from OUTCOME_COLORS, overridable per series.",
     author: AUTHOR,
-    dependencies: [],
+    dependencies: ["liveline"],
     registryDependencies: [
       `${BASE_URL}/hip4-format.json`,
       `${BASE_URL}/use-probability-history.json`,
@@ -720,7 +720,7 @@ const items: RegistryItem[] = [
     type: "registry:hook",
     title: "useUnderlyingPrice",
     description:
-      "Subscribes to the underlying asset's perp price with candleSnapshot history. Returns { prices, currentPrice } ready for LivePriceChart. Handles history prefetch + live WS updates + deduplication.",
+      "Subscribes to the underlying asset's settlement-aligned perp markPx. Seeds from metaAndAssetCtxs, streams activeAssetCtx updates, and returns { prices, currentPrice } ready for LivePriceChart.",
     author: AUTHOR,
     dependencies: ["@nktkas/hyperliquid"],
     registryDependencies: [

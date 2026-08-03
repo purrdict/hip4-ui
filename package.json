@@ -40,6 +40,9 @@
     "lint": "tsc --noEmit",
     "prepublishOnly": "bun run build"
   },
+  "dependencies": {
+    "liveline": "^0.0.7"
+  },
   "peerDependencies": {
     "@purrdict/hip4": "^0.2.0",
     "@nktkas/hyperliquid": "^0.32.2",
