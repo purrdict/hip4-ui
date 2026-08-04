@@ -1,190 +1,100 @@
-# @purrdict/hip4-ui
+# Purrdict HIP-4 UI Registry
 
-shadcn-compatible React components for building HIP-4 prediction market UIs on Hyperliquid.
+Public, MIT-licensed React components and hooks for building [Hyperliquid HIP-4 prediction-market](https://www.purrdict.xyz/hip4/) interfaces with shadcn/ui.
 
-> Built on top of [@purrdict/hip4](https://github.com/purrdict/hip4-sdk) with wagmi for wallet connectivity.
+The registry uses the public [`@purrdict/hip4` TypeScript package](https://www.npmjs.com/package/@purrdict/hip4) for HIP-4 market discovery, outcome identifiers, prices, sizes, and order construction. Wallet connectivity uses wagmi and viem.
 
----
+## What this repository provides
 
-## What's included
+This is a source registry, not an npm package. The shadcn CLI copies the selected component and hook source into your application so you can inspect, customize, and own it.
 
-| Component | Description |
-|-----------|-------------|
-| `MarketCard` | Card showing market name, Yes/No prices, countdown |
-| `MarketGrid` | Filterable responsive grid of market cards |
-| `TradeForm` | Full trade form with market/limit modes, validation |
-| `Orderbook` | L2 orderbook with depth visualization |
-| `SettlementBanner` | Resolved market result display |
-| `PositionCard` | User position with P&L |
-| `CountdownTimer` | Live expiry countdown |
+The public registry currently exposes 24 entries: 11 UI components, 11 hooks, one formatting library, and one complete quickstart. It covers market discovery, live prices, order books, recent trades, trade entry, positions, probabilities, countdowns, and round history.
 
-| Hook | Description |
-|------|-------------|
-| `useHIP4Client` | Creates/caches an @purrdict/hip4 client |
-| `useHIP4Signer` | Adapts any wagmi wallet to SDK signer interface |
-| `useMarkets` | Discovers markets + subscribes to live prices |
-| `useOrderbook` | L2 book WebSocket subscription |
-| `useTrade` | Place/cancel orders |
-| `useMinShares` | Compute minimum order size |
-| `usePortfolio` | Balances, positions, open orders |
-| `useSettlement` | Detect market resolution |
-
----
+Browse every entry and its generated registry JSON at [ui.purrdict.xyz](https://ui.purrdict.xyz/).
 
 ## Install
 
+Install the shared dependencies:
+
 ```bash
 bun add @purrdict/hip4 @nktkas/hyperliquid wagmi viem
-bun add @purrdict/hip4-ui
 ```
 
-Or install components individually via shadcn CLI:
+Add the complete working example:
 
 ```bash
-npx shadcn add https://ui.purrdict.xyz/r/market-card
-npx shadcn add https://ui.purrdict.xyz/r/trade-form
-npx shadcn add https://ui.purrdict.xyz/r/orderbook
+npx shadcn@latest add https://ui.purrdict.xyz/r/hip4-quickstart.json
 ```
 
----
+Or add individual entries:
+
+```bash
+npx shadcn@latest add https://ui.purrdict.xyz/r/hip4-provider.json
+npx shadcn@latest add https://ui.purrdict.xyz/r/market-card.json
+npx shadcn@latest add https://ui.purrdict.xyz/r/trade-form.json
+npx shadcn@latest add https://ui.purrdict.xyz/r/orderbook.json
+```
 
 ## Quick start
 
+After installing the provider, market hook, and market card from the registry:
+
 ```tsx
 "use client";
 
-import { WagmiProvider } from "wagmi";
-import { wagmiConfig } from "./wagmi-config"; // your own config
+import { MarketCard } from "@/components/hip4/market-card";
+import { HIP4Provider } from "@/hooks/hip4/hip4-provider";
+import { useMarkets } from "@/hooks/hip4/use-markets";
 
-import {
-  useHIP4Client,
-  useMarkets,
-  MarketGrid,
-} from "@purrdict/hip4-ui";
+function MarketList() {
+  const { markets, mids, isLoading } = useMarkets();
+
+  if (isLoading) return <p>Discovering HIP-4 markets…</p>;
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {markets.map((market) => (
+        <MarketCard
+          key={market.yesCoin}
+          market={market}
+          yesMid={Number(mids[market.yesCoin] ?? 0)}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function MarketsPage() {
-  const client = useHIP4Client({ testnet: true });
-  const { markets, mids, isLoading, error } = useMarkets(client);
-
-  if (isLoading) return <p>Loading markets...</p>;
-  if (error) return <p>Error: {error.message}</p>;
-
   return (
-    <MarketGrid
-      markets={markets}
-      mids={mids}
-      onMarketClick={(m) => console.log("Selected:", m.yesCoin)}
-    />
+    <HIP4Provider testnet={false}>
+      <MarketList />
+    </HIP4Provider>
   );
 }
 ```
 
----
+Use `testnet={true}` while developing against Hyperliquid Testnet. The current Purrdict HIP-4 guide distinguishes mainnet USDC metadata from legacy testnet records that may still expose USDH.
 
-## Trade form example
+## Design and wallet model
 
-```tsx
-"use client";
+- Components use standard shadcn CSS variables and remain fully editable after installation.
+- Wallet integration is connector-agnostic through wagmi; the registry does not require a hosted wallet provider.
+- Read-only hooks use Hyperliquid's public data interfaces. Trading requires an explicitly connected signer.
+- Builder-fee configuration is optional and remains visible in the installed source.
 
-import {
-  useHIP4Client,
-  useHIP4Signer,
-  useTrade,
-  TradeForm,
-} from "@purrdict/hip4-ui";
-import type { Market } from "@purrdict/hip4";
+## Developer resources
 
-interface Props {
-  market: Market;
-}
+- [Build HIP-4 apps with Purrdict](https://www.purrdict.xyz/build/)
+- [Purrdict HIP-4 protocol guide](https://www.purrdict.xyz/hip4/)
+- [Public `@purrdict/hip4` package](https://www.npmjs.com/package/@purrdict/hip4)
+- [HIP-4 UI registry](https://ui.purrdict.xyz/)
+- [HIP-4 developer reference](https://hip4.fun/developers/)
+- [Open HIP-4 market data](https://www.purrdict.xyz/hip4-market-data/)
+- [Normalized prediction-market data from mute.sh](https://mute.sh/)
+- [Trade HIP-4 markets on Purrdict](https://app.purrdict.xyz/)
+- [Official Hyperliquid developer documentation](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api)
 
-export function TradingPanel({ market }: Props) {
-  const client = useHIP4Client({ testnet: true });
-  const signer = useHIP4Signer();
-  const { buy, sell, isSubmitting, lastResult, error } = useTrade(client, signer);
-
-  return (
-    <TradeForm
-      market={market}
-      side="Yes"
-      currentPrice={0.55}
-      minShares={20}
-      isConnected={!!signer}
-      onTrade={async (params) => {
-        const result = await buy(params);
-        console.log("Order result:", result);
-      }}
-    />
-  );
-}
-```
-
----
-
-## Wallet setup
-
-Components are wallet-agnostic — use any wagmi connector:
-
-```tsx
-import { WagmiProvider, createConfig, http } from "wagmi";
-import { arbitrum } from "wagmi/chains";
-import { injected, walletConnect } from "wagmi/connectors";
-
-const config = createConfig({
-  chains: [arbitrum],
-  connectors: [injected(), walletConnect({ projectId: "..." })],
-  transports: { [arbitrum.id]: http() },
-});
-
-function App({ children }) {
-  return <WagmiProvider config={config}>{children}</WagmiProvider>;
-}
-```
-
----
-
-## Theming
-
-Components use shadcn CSS variables. Add HIP-4 specific colors to your `globals.css`:
-
-```css
-:root {
-  --hip4-positive: oklch(0.75 0.18 142);  /* green for Yes/gains */
-  --hip4-negative: oklch(0.65 0.2 25);    /* red for No/losses */
-  --hip4-accent: oklch(0.83 0.18 85);     /* gold accent */
-}
-```
-
----
-
-## Builder fee
-
-Pass an optional `builder` prop to collect fees on sell orders:
-
-```tsx
-<TradeForm
-  market={market}
-  side="Yes"
-  builder={{
-    address: "0xYourBuilderAddress",
-    fee: 100, // 100 = 0.1% (tenths of a basis point)
-  }}
-/>
-```
-
-Builder fees apply to sell orders only (buy-side fee is always 0 on prediction markets).
-The builder address must hold 100+ USDC in a Hyperliquid perps account to be approved.
-
----
-
-## Resources
-
-- [Purrdict](https://purrdict.xyz) — HIP-4 prediction market app
-- [UI registry](https://ui.purrdict.xyz) — shadcn component registry
-- [@purrdict/hip4](https://github.com/purrdict/hip4-sdk) — underlying SDK
-- [Hyperliquid](https://hyperliquid.xyz) — underlying exchange
-
----
+Purrdict is independent and is not affiliated with or endorsed by Hyperliquid Labs.
 
 ## License
 

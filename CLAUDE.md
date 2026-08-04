@@ -3,7 +3,7 @@
 shadcn-compatible React component registry for HIP-4 prediction markets on Hyperliquid.
 
 - **Registry**: https://ui.purrdict.xyz
-- **npm**: `@purrdict/hip4-ui` (v0.1.0)
+- **Distribution**: source registry (not an npm package)
 - **Install any item**: `npx shadcn@latest add https://ui.purrdict.xyz/r/<name>.json`
 
 ## Quick Start (for AI agents building with this)
