@@ -39,7 +39,7 @@ export interface TradeParams {
    */
   markPx?: number;
   /**
-   * Optional builder fee for this order (sell side only).
+   * Optional builder fee for this order (charged on buys and sells).
    */
   builder?: {
     address: string;
